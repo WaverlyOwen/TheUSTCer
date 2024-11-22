@@ -1,5 +1,161 @@
 "use strict";
 
+// Manage level;
+function createLevel() {
+    let level = 0;
+    return {
+        increment: function() {
+            level++;
+            this.GPA();
+        },
+        decrement: function() {
+            if (level > 0) {
+                level--;
+                this.GPA();
+            }
+        },
+        reset: function() {
+            level = 0;
+            this.GPA();
+        },
+        GPA: function() {
+            const scalingFactor = 0.05;
+            const maxGPA = 4.3;
+            const minGPA = 1.0;
+            let GPA = (minGPA + (maxGPA - minGPA) * (1 - Math.exp(-scalingFactor * level))).toFixed(2);
+            document.getElementById('GPA').innerText = `GPA ${GPA}`;
+        },
+        cols: function() {
+            return Math.floor((level) / 20 + 4.5);
+        },
+        rows: function() {
+            return Math.floor((level) / 20 + 4);
+        }
+    }
+}
+
+class Path {
+    constructor(rows, cols) {
+        this.node = Array(rows + 1).fill().map(() => Array(cols + 1).fill().map(() => [0, 0, 0]));
+        this.road = Array(rows + 1).fill().map(() => Array(cols + 1).fill().map(() => [0, 0]));
+        this.last = 0;
+        this.y = 0;
+        this.x = 0;
+        this.distance = 0;
+        this.rows = rows;
+        this.cols = cols;
+    }
+
+    validMovement(now) {
+        const directions = [
+            [0, 1], [1, 0], [0, -1], [-1, 0]
+        ];
+        let visited = Array.from({ length: (this.rows + 1) }, () => Array(cols + 1).fill(false));
+        visited[this.y][this.x] = true;
+        let newY = this.y + directions[now][0];
+        let newX = this.x + directions[now][1];
+        let queue = [];
+
+        if(
+            newY >= 0 && newY <= this.rows &&
+            newX >= 0 && newX <= this.cols &&
+            this.node[newX][newY][0] == 0
+          ) {
+            visited[newY][newX] = true;
+            queue.push([newY, newX, 0]);
+          } else {
+            return false;
+        }
+
+        while (queue.length > 0) {
+            let [currentY, currentX, distance] = queue.shift();
+        
+            if (currentY === this.rows && currentX === this.cols) {
+              return true;
+            }
+        
+            for (let [dy, dx] of directions) {
+                newY = currentY + dy;
+                newX = currentX + dx;
+        
+                if(
+                    newY >= 0 && newY <= this.rows &&
+                    newX >= 0 && newX <= this.cols &&
+                    this.node[newY][newX][0] &&
+                    !visited[newY][newX]
+                ) {
+                    queue.push([newY, newX, distance + 1]);
+                    visited[newY][newX] = true;
+                }
+            }
+        }
+        return true;
+    }
+
+    evaluateNodeType(now) {
+        if (this.last === now) {
+            return [2, now % 2, 0];
+        } else if ((this.last + 1) % 4 == now) {
+            return [3, (now + 1) % 4, 0];
+        } else if ((now + 1) % 4 == this.last) {
+            return [3, now, 0];
+        }
+    }
+
+    step(now) {
+        if (x == 0 && y == 0) {
+            switch (now) {
+                case 0 :
+                    this.x = 1;
+                    this.last = 0;
+                    this.road[0][0][0] = 1;
+                    break;
+                case 1 :
+                    this.y = 1;
+                    this.last = 1;
+                    this.road[0][0][1] = 1;
+                    break;
+                default :
+                    break;
+            }
+        } else if (y == this.rows && x == this.cols) {
+            if (now == 0) {
+                this.node[this.rows][this.cols] = [2 + this.last, 0, ++this.distance];
+            }
+        } else if (this.validMovement(now)) {
+            this.node[this.y][this.x] = this.evaluateNodeType(now);
+            this.node[this.y][this.x][2] = ++this.distance;
+
+            switch (now) {
+                case 0 :
+                    this.road[this.x++][this.y][0] = 1;
+                    break;
+                case 1 :
+                    this.road[this.x][this.y++][1] = 1;
+                    break;
+                case 2 :
+                    this.road[--this.x][this.y][0] = 1;
+                    break;
+                case 3 :
+                    this.road[this.x][--this.y][1] = 1;
+                default:
+                    break;
+            }
+    
+            this.last = now;
+        }
+    }
+
+    getNodeByDistance(dist) {
+        for (let i = 0; i <= this.rows; i++) {
+            for (let j = 0; j <= this.cols; j++) {
+                if (dist = this.node[i][j][2]) return [i, j];
+            }
+        }
+        return [0, 0];
+    }
+}
+
 // Determine node type
 function evaluateNodeType(last, now) {
     if (last === now) {
@@ -28,7 +184,7 @@ function invalidMovement(x, y, now) {
     [1, 0], [0, 1], [-1, 0], [0, -1]
   ];
 
-  let visited = Array.from({ length: (cols + 1) }, () => Array(rows + 1).fill(false));
+  let visited = Array.from({ length: (level.cols() + 1) }, () => Array(level.rows() + 1).fill(false));
   visited[x][y] = true;
 
   x += directions[now][0];
@@ -36,19 +192,19 @@ function invalidMovement(x, y, now) {
 
   let queue = [];
   if(
-    x >= 0 && x <= cols &&
-    y >= 0 && y <= rows &&
+    x >= 0 && x <= level.cols() &&
+    y >= 0 && y <= level.rows() &&
     map[x][y][1][0] === 0
   ) {
     visited[x][y] = true;
     queue.push([x, y, 0]);
-  } else return 1;
+  } else return true;
 
 
   while (queue.length > 0) {
     let [currentCol, currentRow, distance] = queue.shift();
 
-    if (currentCol === cols && currentRow === rows) {
+    if (currentCol === level.cols() && currentRow === level.rows()) {
       return false;
     }
 
@@ -57,8 +213,8 @@ function invalidMovement(x, y, now) {
       let newRow = currentRow + dy;
 
       if(
-        newCol >= 0 && newCol <= cols &&
-        newRow >= 0 && newRow <= rows &&
+        newCol >= 0 && newCol <= level.cols() &&
+        newRow >= 0 && newRow <= level.rows() &&
         map[newCol][newRow][1][0] === 0 &&
         !visited[newCol][newRow]
       ) {
@@ -86,7 +242,7 @@ function generatePath() {
         last = 1;
     }
 
-    while (x != cols || y != rows) {
+    while (x != level.cols() || y != level.rows()) {
         let now = randomRotation(last);
         if (invalidMovement(x, y, now)) continue;
         map[x][y][1] = evaluateNodeType(last, now);
@@ -112,7 +268,7 @@ function generatePath() {
     }
 
     // Last step
-    map[cols][rows][1] = [2 + last, 0];
+    map[level.cols()][level.rows()][1] = [2 + last, 0];
 }
 
 // Generate the group of a given path
@@ -127,12 +283,12 @@ function searchGroup(x, y, groupCount, roadNumber) {
     while (queue.length > 0) {
         let [currentCol, currentRow] = queue.shift();
 
-        if (currentCol < cols - 1 && !map[currentCol + 1][currentRow][roadNumber][1] && !map[currentCol + 1][currentRow][0][0]) {
+        if (currentCol <level.cols() - 1 && !map[currentCol + 1][currentRow][roadNumber][1] && !map[currentCol + 1][currentRow][0][0]) {
             queue.push([currentCol + 1, currentRow]);
             map[currentCol + 1][currentRow][0][0] = groupCount;
             map[currentCol + 1][currentRow][0][1] = memberCount++;
         }
-        if (currentRow < rows - 1 && !map[currentCol][currentRow + 1][roadNumber][0] && !map[currentCol][currentRow + 1][0][0]) {
+        if (currentRow < level.rows() - 1 && !map[currentCol][currentRow + 1][roadNumber][0] && !map[currentCol][currentRow + 1][0][0]) {
             queue.push([currentCol, currentRow + 1]);
             map[currentCol][currentRow + 1][0][0] = groupCount;
             map[currentCol][currentRow + 1][0][1] = memberCount++;
@@ -155,8 +311,8 @@ function generateGroup(roadNumber) {
     clearMap([0]);
 
     let memberCount = [];
-    for (let i = 0; i < cols; ++i) {
-        for (let j = 0; j < rows; ++j) {
+    for (let i = 0; i < level.cols(); ++i) {
+        for (let j = 0; j < level.rows(); ++j) {
             if (map[i][j][0][0]) {
                 continue;
             } else {
@@ -199,24 +355,15 @@ function createSign(x, y, type, number, distance, last) {
     board.appendChild(newSign);
 }
 
-function calculateGPA() {
-    if (level < 0) {
-        level = 0;
-    }
-    const scalingFactor = 0.05;
-    const GPA = 1 + 3.3 * (1 - Math.exp(-scalingFactor * level));
-    return GPA.toFixed(2);
-}
-
 function applyPath() {
     createSign(0, 0, 4, 0);
-    createSign(cols, rows, 4, 1);
-    createSign(cols, rows, 4, 2);
-    createSign(cols, rows, 4, 3);
-    createSign(cols, rows, 4, 4);
+    createSign(level.cols(), level.rows(), 4, 1);
+    createSign(level.cols(), level.rows(), 4, 2);
+    createSign(level.cols(), level.rows(), 4, 3);
+    createSign(level.cols(), level.rows(), 4, 4);
 
-    for (let i = 0; i <= cols; ++i) {
-        for (let j = 0; j <= rows; ++j) {
+    for (let i = 0; i <= level.cols(); ++i) {
+        for (let j = 0; j <= level.rows(); ++j) {
             // Apply node setting
             if (map[i][j][1][0]) {
                 createSign(i, j, map[i][j][1][0], map[i][j][1][1]);
@@ -239,7 +386,7 @@ function applyPath() {
             }
 
             // Apply cell setting
-            if (i === cols || j === rows) {
+            if (i === level.cols() || j === level.rows()) {
                 continue;
             }
 
@@ -281,7 +428,7 @@ function randomSet(size, n) {
 function invalidGroup(memberCount) {
     if (memberCount.length < 4) return 1;
     for (let i = 0; i < memberCount.length; ++i) {
-        if (memberCount[i] > cols * rows / 3 || memberCount[i] < cols * rows / 16) {
+        if (memberCount[i] > level.cols() * level.rows() / 3 || memberCount[i] < level.cols() * level.rows() / 16) {
             return 1;
         }
     }
@@ -311,8 +458,8 @@ function generateSign(memberCount) {
     }
 
     // Apply sign set up
-    for (let i = 0; i < cols; ++i) {
-        for (let j = 0; j < rows; ++j) {
+    for (let i = 0; i < level.cols(); ++i) {
+        for (let j = 0; j < level.rows(); ++j) {
             if (groupProperties[map[i][j][0][0] - 1][3].delete(map[i][j][0][1])) {
                 switch (groupProperties[map[i][j][0][0] - 1][2]) {
                     case 1 :
@@ -342,8 +489,8 @@ function generateSign(memberCount) {
 }
 
 function clearMap(array) {
-    for (let i = 0; i <= cols; ++i) {
-        for (let j = 0; j <= rows; ++j) {
+    for (let i = 0; i <= level.cols(); ++i) {
+        for (let j = 0; j <= level.rows(); ++j) {
             for (const num of array) {
                 map[i][j][num] = [0, 0];
             }
@@ -356,14 +503,11 @@ function clearMap(array) {
 
 // Delete created path
 function deletePath() {
-    document.getElementById('GPA').innerText = `GPA ${calculateGPA()}`;
     // Initialise board
-    document.documentElement.style.setProperty('--cols', cols);
-    document.documentElement.style.setProperty('--rows', rows);
+    document.documentElement.style.setProperty('--cols', level.cols());
+    document.documentElement.style.setProperty('--rows', level.rows());
     // Remove all the .sign element
     document.querySelectorAll('.sign').forEach(element => element.remove());
-    cols = Math.floor((level) / 20 + 4.5);
-    rows = Math.floor((level) / 20 + 4);
     map = createNewMap();
 }
 
@@ -389,8 +533,8 @@ function evaluatePath(memberCount) {
         groupProperties[i][0] = memberCount[i];
     }
 
-    for (let i = 0; i < cols; ++i) {
-        for (let j = 0; j < rows; ++j) {
+    for (let i = 0; i < level.cols(); ++i) {
+        for (let j = 0; j < level.rows(); ++j) {
             switch(map[i][j][3][0]) {
                 case 7 : case 8 : case 9 : case 10 :
                     if (groupProperties[map[i][j][0][0] - 1][1] === 0) {
@@ -441,10 +585,10 @@ function regeneratePath() {
 }
 
 function createNewMap() {
-    let newArray = new Array(cols + 1);
-    for (let i = 0; i <= cols; ++i) {
-        newArray[i] = new Array(rows + 1);
-        for (let j = 0; j <= rows; ++j) {
+    let newArray = new Array(level.cols() + 1);
+    for (let i = 0; i <= level.cols(); ++i) {
+        newArray[i] = new Array(level.rows() + 1);
+        for (let j = 0; j <= level.rows(); ++j) {
             newArray[i][j] = new Array(6);
             for (let k = 0; k < 6; ++k) {
                 newArray[i][j][k] = new Array(2).fill(0);
@@ -476,15 +620,15 @@ function handleKey(event) {
 
     switch (event.key) {
         case 'ArrowRight' : case 'd' :
-            if (handleKey.x < cols && !map[handleKey.x + 1][handleKey.y][4][0]) {
+            if (handleKey.x < level.cols() && !map[handleKey.x + 1][handleKey.y][4][0]) {
                 now = 0;
-            } else if (handleKey.x === cols && handleKey.y === rows) {
+            } else if (handleKey.x === level.cols() && handleKey.y === level.rows()) {
                 now = 0;
                 map[handleKey.x][handleKey.y][4] = evaluateNodeType(handleKey.last, now);
                 createSign(handleKey.x, handleKey.y, map[handleKey.x][handleKey.y][4][0], map[handleKey.x][handleKey.y][4][1], ++handleKey.distance, handleKey.last);
-                createSign(cols, rows, 4, 4, handleKey.distance);
+                createSign(level.cols(), level.rows(), 4, 4, handleKey.distance);
                 if (evaluatePath(generateGroup(5))) {
-                    ++level;
+                    level.increment();
                     handleKey.x = 0;
                     handleKey.y = 0;
                     handleKey.last = 0;
@@ -500,7 +644,7 @@ function handleKey(event) {
             } else return;
             break;
         case 'ArrowDown' : case 's' :
-            if (handleKey.y < rows && !map[handleKey.x][handleKey.y + 1][4][0]) {
+            if (handleKey.y < level.rows() && !map[handleKey.x][handleKey.y + 1][4][0]) {
                 now = 1;
             } else {
                 return;
@@ -529,7 +673,7 @@ function handleKey(event) {
             }
 
             // Delete road
-            if (handleKey.x != cols && handleKey.y != rows) {
+            if (handleKey.x != level.cols() && handleKey.y != level.rows()) {
                 const lastRoad = document.querySelector(`[type = "1"][distance = "${handleKey.distance}"]`);
                 handleKey.x = parseInt(lastRoad.getAttribute('x'));
                 handleKey.y = parseInt(lastRoad.getAttribute('y'));
@@ -554,7 +698,7 @@ function handleKey(event) {
             clearUserPath();
             return;
         case 'Enter' :
-            --level;
+            level.decrement();
             event.preventDefault();
             event.stopPropagation();
             handleKey.x = 0;
@@ -570,7 +714,7 @@ function handleKey(event) {
             hideAnswer();
             break;
         case 'Tab' :
-            --level;
+            level.decrement();
             handleKey.x = 0;
             handleKey.y = 0;
             handleKey.last = 0;
@@ -616,11 +760,9 @@ const roadRate = 0.3;
 const signRate = 1;
 const board = document.getElementById('board');
 const typeScale = [2, 2, 2, 4, 4, 11, 11, 1, 3, 5, 5, 2, 2, 5];
-
 // Define variables
-let level = 0;
-let cols = 4;
-let rows = 4;
+const level = createLevel();
+level.GPA();
 
 // Add event listener
 document.addEventListener('keydown', handleKey);
@@ -630,3 +772,13 @@ document.addEventListener('keydown', handleKey);
 let map = createNewMap();
 
 regeneratePath();
+
+const start = document.querySelector(".sign[type = '4'][number = '0']");
+const menu = document.getElementById("menu");
+
+start.addEventListener('mouseenter', () => {
+    menu.classList.add('show');
+});
+start.addEventListener('mouseleave', () => {
+    menu.classList.remove('show');
+});

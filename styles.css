@@ -1,8 +1,9 @@
 :root {
-    --line-color: #b4f4ff;
+    --theme-color-1: #afecff;
+    --theme-color-2: #eefcff;
     --border-color: #000000;
     --background-color: #ffffff;
-    --foreground-color: #cecece;
+    --foreground-color: #ebebeb;
 }
 
 h1 {
@@ -15,25 +16,36 @@ h1 {
     letter-spacing: 0.3vh;
 }
 
-#GPA {
-  position: absolute;
-  top: 20vh;
-  width: 100%;
-  text-align: center;
-  font-family: "Kristen ITC", Arial, sans-serif;
+h2 {
   font-size: 3vh;
+  letter-spacing: 0.3vh;
+}
+
+h3 {
+  font-size: 2vh;
+  letter-spacing: 0.3vh;
+  line-height: 3vh;
+}
+
+#GPA {
+    position: absolute;
+    top: 20vh;
+    width: 100%;
+    text-align: center;
+    font-family: "Kristen ITC", Arial, sans-serif;
+    font-size: 3vh;
 }
 
 #wrong {
-  position: absolute;
-  top: 24vh;
-  color: red;
-  width: 100%;
-  text-align: center;
-  font-family: "Kristen ITC", Arial, sans-serif;
-  font-size: 3.5vh;
-  opacity: 0;
-  transition: opacity 0.5s ease-in-out;
+    position: absolute;
+    top: 24vh;
+    color: red;
+    width: 100%;
+    text-align: center;
+    font-family: "Kristen ITC", Arial, sans-serif;
+    font-size: 3.5vh;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
 }
 
 #board {
@@ -80,7 +92,7 @@ h1 {
 
 .sign[type = '1'], .sign[type = '2'] {
     z-index: 2;
-    background-color: var(--line-color);
+    background-color: var(--theme-color-1);
 }
 .sign[type = '1'][number = '0'] {
     width: 2.4vh;
@@ -95,13 +107,13 @@ h1 {
 .sign[type = '2'][number = '0'] {
     width: 4vh;
     height: 1vh;
-    background-color: var(--line-color);
+    background-color: var(--theme-color-1);
     transform: translate(-2.5vh, -1vh);
 }
 .sign[type = '2'][number = '1'] {
     width: 1vh;
     height: 4vh;
-    background-color: var(--line-color);
+    background-color: var(--theme-color-1);
     transform: translate(-1vh, -2.5vh);
 }
 
@@ -109,7 +121,7 @@ h1 {
     z-index: 2;
     width: 4vh;
     height: 4vh;
-    border-color: var(--line-color);
+    border-color: var(--theme-color-1);
     border-width: 1vh;
     border-style: solid;
     border-radius: 2vh;
@@ -136,10 +148,49 @@ h1 {
     width: 1vh;
     height: 1vh;
     transform: translate(-2vh, -2vh);
-    background-color: var(--background-color);
-    border: 1vh solid var(--line-color);
+    background-color: var(--theme-color-2);
+    border: 1vh solid var(--theme-color-1);
     border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.3s ease, border-width 0.3s ease, width 0.3s ease, height 0.3s ease;
 }
+
+.sign[type = '4'][number = '0']:hover {
+    width: 2vh;
+    height: 2vh;
+    border-width: 0.5vh;
+}
+
+#menu {
+    position: absolute;
+    z-index: 3;
+    top: 60vh;
+    left: 50%;
+    width: 80vh;
+    height: 30vh;
+    opacity: 0;
+    background-color: #ffffff;
+    border-width: 0.2vh;
+    border-style: solid;
+    border-color: var(--border-color);
+    border-radius: 1vh;
+    transform: translate(-50%, 0);
+    transition: opacity 0.5s ease, border-radius 0.5s ease;
+}
+
+#rule{
+  text-align: center;
+  justify-self: center;
+  width: 100%;
+  height: 10vh;
+  font-family: "ZCOOL KuaiLe", sans-serif;
+}
+
+#menu.show {
+  opacity: 1;
+  border-radius: 5vh;
+}
+
 .sign[type = '4'][number = '1'] {
     z-index: 1;
     width: 0.4vh;
@@ -178,7 +229,7 @@ h1 {
     border-top-right-radius: 0.7vh;
     border-bottom-right-radius: 0.7vh;
     transform: translate(1vh, -1.15vh);
-    background-color: var(--line-color);
+    background-color: var(--theme-color-1);
 }
 
 .sign[type = '5'] {
