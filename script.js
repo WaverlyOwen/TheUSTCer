@@ -362,8 +362,8 @@ function deletePath() {
     document.documentElement.style.setProperty('--rows', rows);
     // Remove all the .sign element
     document.querySelectorAll('.sign').forEach(element => element.remove());
-    cols = Math.floor((level) / 20 + 4.5);
-    rows = Math.floor((level) / 20 + 4);
+    cols = Math.floor((level) / 20 + 3.5);
+    rows = Math.floor((level) / 20 + 3);
     map = createNewMap();
 }
 
@@ -618,7 +618,7 @@ const board = document.getElementById('board');
 const typeScale = [2, 2, 2, 4, 4, 11, 11, 1, 3, 5, 5, 2, 2, 5];
 
 // Define variables
-let level = 131;
+let level = 0;
 let cols = 4;
 let rows = 4;
 
