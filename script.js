@@ -362,8 +362,8 @@ function deletePath() {
     document.documentElement.style.setProperty('--rows', rows);
     // Remove all the .sign element
     document.querySelectorAll('.sign').forEach(element => element.remove());
-    cols = Math.floor((level) / 20 + 3.5);
-    rows = Math.floor((level) / 20 + 3);
+    cols = Math.floor((level) / 20 + 4.5);
+    rows = Math.floor((level) / 20 + 4);
     map = createNewMap();
 }
 
