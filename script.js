@@ -628,6 +628,7 @@ function handleKey(event) {
                     handleKey.distance = 0;
                     regeneratePath();
                 } else {
+                    handleKey.x++;
                     document.getElementById('wrong').style.opacity = 1;
                     setTimeout(() => {
                         document.getElementById('wrong').style.opacity = 0;
@@ -651,7 +652,7 @@ function handleKey(event) {
             }
             break;
         case 'ArrowUp' : case 'w' :
-            if (handleKey.y > 0 && !map[handleKey.x][handleKey.y - 1][4][0]) {
+            if (handleKey.y > 0 && !map[handleKey.x][handleKey.y - 1][4][0] && handleKey.x !== level.cols() + 1) {
                 now = 3;
             } else {
                 return;
@@ -702,6 +703,11 @@ function handleKey(event) {
             showAnswer();
             break;
         case 'Shift' :
+            handleKey.x = 0;
+            handleKey.y = 0;
+            handleKey.last = 0;
+            handleKey.distance = 0;
+            clearUserPath();
             event.preventDefault();
             event.stopPropagation();
             hideAnswer();

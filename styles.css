@@ -71,8 +71,8 @@
     border-width: 0.2vh;
     border-style: solid;
     border-color: var(--border-color);
-    border-top-right-radius: 2vh;
-    border-bottom-left-radius: 2vh;
+    border-top-right-radius: 2.2vh;
+    border-bottom-left-radius: 2.2vh;
 }
 
 .sign {
@@ -209,7 +209,7 @@
     height: 2vh;
     border: 0.2vh solid var(--border-color);
     border-radius: 1vh;
-    transform: translateY(-3.3vh);
+    transform: translateY(-3.4vh);
     clip-path: polygon(50% 50%, 50% 100%, 0% 100%, 0% 50%);
 }
 .sign[type = '4'][number = '3'] {
@@ -221,7 +221,7 @@
     border-bottom: 0.2vh solid var(--border-color);
     border-top-right-radius: 0.7vh;
     border-bottom-right-radius: 0.7vh;
-    transform: translateY(-1.15vh);
+    transform: translateY(-1.2vh);
     clip-path: polygon(1vh 50%, 1vh 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%);
 }
 .sign[type = '4'][number = '4'] {
@@ -233,7 +233,7 @@
     border-bottom: 0.2vh solid var(--border-color);
     border-top-right-radius: 0.7vh;
     border-bottom-right-radius: 0.7vh;
-    transform: translate(1vh, -1.15vh);
+    transform: translate(1vh, -1.2vh);
     background-color: var(--theme-color-1);
 }
 
