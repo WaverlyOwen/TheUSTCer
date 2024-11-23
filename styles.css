@@ -6,25 +6,38 @@
     --foreground-color: #ebebeb;
 }
 
-h1 {
+#title   {
     position: absolute;
     top: 10vh;
     width: 100%;
     text-align: center;
     font-family: "Kristen ITC", Arial, sans-serif;
     font-size: 5vh;
+    font-weight: bold;
     letter-spacing: 0.3vh;
 }
 
-h2 {
+#ruleTitle {
+  position: absolute;
+  font-weight: bold;
+  top: 2ch;
+  text-align: center;
   font-size: 3vh;
   letter-spacing: 0.3vh;
+  font-family: "ZCOOL KuaiLe", sans-serif;
+  width: 100%;
+  height: 10vh;
 }
-
-h3 {
+#rule {
+  position: absolute;
+  text-align: center;
+  top: 9vh;
   font-size: 2vh;
+  font-family: "ZCOOL KuaiLe", sans-serif;
   letter-spacing: 0.3vh;
   line-height: 3vh;
+  width: 100%;
+  height: 20vh;
 }
 
 #GPA {
@@ -176,14 +189,6 @@ h3 {
     border-radius: 1vh;
     transform: translate(-50%, 0);
     transition: opacity 0.5s ease, border-radius 0.5s ease;
-}
-
-#rule{
-  text-align: center;
-  justify-self: center;
-  width: 100%;
-  height: 10vh;
-  font-family: "ZCOOL KuaiLe", sans-serif;
 }
 
 #menu.show {

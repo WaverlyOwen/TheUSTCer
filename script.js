@@ -35,57 +35,58 @@ function createLevel() {
 }
 
 class Path {
-    constructor(rows, cols) {
-        this.node = Array(rows + 1).fill().map(() => Array(cols + 1).fill().map(() => [0, 0, 0]));
-        this.road = Array(rows + 1).fill().map(() => Array(cols + 1).fill().map(() => [0, 0]));
+    constructor(name, rows, cols) {
+        this.name = name;
+        this.node = Array(cols + 1).fill().map(() => Array(rows + 1).fill().map(() => [0, 0, 0]));
+        this.road = Array(cols + 1).fill().map(() => Array(rows + 1).fill().map(() => [0, 0]));
         this.last = 0;
-        this.y = 0;
         this.x = 0;
+        this.y = 0;
         this.distance = 0;
-        this.rows = rows;
         this.cols = cols;
+        this.rows = rows;
     }
 
     validMovement(now) {
         const directions = [
-            [0, 1], [1, 0], [0, -1], [-1, 0]
+            [1, 0], [0, 1], [-1, 0], [0, -1]
         ];
-        let visited = Array.from({ length: (this.rows + 1) }, () => Array(cols + 1).fill(false));
-        visited[this.y][this.x] = true;
-        let newY = this.y + directions[now][0];
-        let newX = this.x + directions[now][1];
+        let visited = Array.from({ length: (this.cols + 1) }, () => Array(this.rows + 1).fill(false));
+        visited[this.x][this.y] = true;
+        let newX = this.x + directions[now][0];
+        let newY = this.y + directions[now][1];
         let queue = [];
 
         if(
-            newY >= 0 && newY <= this.rows &&
             newX >= 0 && newX <= this.cols &&
+            newY >= 0 && newY <= this.rows &&
             this.node[newX][newY][0] == 0
           ) {
-            visited[newY][newX] = true;
-            queue.push([newY, newX, 0]);
+            visited[newX][newY] = true;
+            queue.push([newX, newY]);
           } else {
             return false;
         }
 
         while (queue.length > 0) {
-            let [currentY, currentX, distance] = queue.shift();
+            let [currentX, currentY] = queue.shift();
         
-            if (currentY === this.rows && currentX === this.cols) {
+            if (currentX === this.cols && currentY === this.rows) {
               return true;
             }
         
-            for (let [dy, dx] of directions) {
-                newY = currentY + dy;
+            for (let [dx, dy] of directions) {
                 newX = currentX + dx;
+                newY = currentY + dy;
         
                 if(
-                    newY >= 0 && newY <= this.rows &&
                     newX >= 0 && newX <= this.cols &&
-                    this.node[newY][newX][0] &&
-                    !visited[newY][newX]
+                    newY >= 0 && newY <= this.rows &&
+                    this.node[newX][newY][0] &&
+                    !visited[newX][newY]
                 ) {
-                    queue.push([newY, newX, distance + 1]);
-                    visited[newY][newX] = true;
+                    queue.push([newX, newY]);
+                    visited[newX][newY] = true;
                 }
             }
         }
@@ -118,42 +119,35 @@ class Path {
                 default :
                     break;
             }
-        } else if (y == this.rows && x == this.cols) {
+        } else if (x == this.cols && y == this.rows) {
             if (now == 0) {
-                this.node[this.rows][this.cols] = [2 + this.last, 0, ++this.distance];
+                this.node[this.cols][this.rows] = [2 + this.last, 0, ++this.distance];
             }
         } else if (this.validMovement(now)) {
-            this.node[this.y][this.x] = this.evaluateNodeType(now);
-            this.node[this.y][this.x][2] = ++this.distance;
+            this.node[this.x][this.y] = this.evaluateNodeType(now);
+            this.node[this.x][this.y][2] = ++this.distance;
 
             switch (now) {
                 case 0 :
-                    this.road[this.x++][this.y][0] = 1;
+                    this.road[this.x++][this.y][0] = this.distance;
                     break;
                 case 1 :
-                    this.road[this.x][this.y++][1] = 1;
+                    this.road[this.x][this.y++][1] = this.distance;
                     break;
                 case 2 :
-                    this.road[--this.x][this.y][0] = 1;
+                    this.road[--this.x][this.y][0] = this.distance;
                     break;
                 case 3 :
-                    this.road[this.x][--this.y][1] = 1;
+                    this.road[this.x][--this.y][1] = this.distance;
                 default:
                     break;
             }
     
             this.last = now;
         }
+        return this.distance;
     }
 
-    getNodeByDistance(dist) {
-        for (let i = 0; i <= this.rows; i++) {
-            for (let j = 0; j <= this.cols; j++) {
-                if (dist = this.node[i][j][2]) return [i, j];
-            }
-        }
-        return [0, 0];
-    }
 }
 
 // Determine node type
@@ -356,7 +350,6 @@ function createSign(x, y, type, number, distance, last) {
 }
 
 function applyPath() {
-    createSign(0, 0, 4, 0);
     createSign(level.cols(), level.rows(), 4, 1);
     createSign(level.cols(), level.rows(), 4, 2);
     createSign(level.cols(), level.rows(), 4, 3);
@@ -507,7 +500,7 @@ function deletePath() {
     document.documentElement.style.setProperty('--cols', level.cols());
     document.documentElement.style.setProperty('--rows', level.rows());
     // Remove all the .sign element
-    document.querySelectorAll('.sign').forEach(element => element.remove());
+    document.querySelectorAll('.sign:not([type = "4"][number = "0"])').forEach(element => element.remove());
     map = createNewMap();
 }
 
@@ -773,6 +766,7 @@ let map = createNewMap();
 
 regeneratePath();
 
+createSign(0, 0, 4, 0);
 const start = document.querySelector(".sign[type = '4'][number = '0']");
 const menu = document.getElementById("menu");
 
