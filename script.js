@@ -514,7 +514,7 @@ function hideAnswer() {
 }
 
 function showAnswer() {
-    document.querySelectorAll('.sign').forEach(element => element.remove());
+    document.querySelectorAll('.sign:not([type = "4"][number = "0"])').forEach(element => element.remove());
     applyPath();
 }
 
