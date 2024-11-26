@@ -58,6 +58,7 @@ if (isMobileDevice()) {
     document.getElementById('simulateR').addEventListener('touchstart', () => {
         simulateKey('R', 'R');
     });
+
     document.getElementById('simulateTab').addEventListener('touchstart', () => {
         simulateKey('Tab', 'Tab');
     });
