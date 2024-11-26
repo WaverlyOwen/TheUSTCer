@@ -3,6 +3,7 @@
 import { createLevel } from './level.js';
 import { Board } from './board.js';
 import { createSwipeDetector } from './mobile.js';
+import { simulateKey } from './mobile.js';
 
 function createBoard() {
     if (board !== undefined) {
@@ -41,7 +42,7 @@ function handleKey(event) {
 }
 
 const level = createLevel();
-const swipeDetector = createSwipeDetector(30);
+const swipeDetector = createSwipeDetector(10);
 level.GPA();
 
 let board;
@@ -51,3 +52,18 @@ createBoard();
 document.addEventListener("keydown", handleKey);
 document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
 document.addEventListener("touchmove", swipeDetector.handleTouchMove, false);
+document.getElementById('simulateTab').addEventListener('click', () => {
+    simulateKey('Tab', 'Tab');
+});
+
+document.getElementById('simulateEnter').addEventListener('click', () => {
+    simulateKey('Enter', 'Enter');
+});
+
+document.getElementById('simulateShift').addEventListener('click', () => {
+    simulateKey('Shift', 'ShiftLeft', { shiftKey: true });
+});
+
+document.getElementById('simulateControl').addEventListener('click', () => {
+    simulateKey('Control', 'ControlLeft', { ctrlKey: true });
+});
