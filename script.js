@@ -12,7 +12,6 @@ function createBoard() {
     }
     // Recreate board;
     board = new Board("problem", level);
-    board.drawBorder();
     board.drawSign();
     board.user();
     board.drawStart();
@@ -54,7 +53,7 @@ document.addEventListener("keydown", handleKey);
 
 if (isMobileDevice()) {
     document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
-    document.addEventListener("touchmove", swipeDetector.handleTouchMove, false);
+    document.addEventListener("touchmove", swipeDetector.handleTouchMove, true);
     document.getElementById('simulateTab').addEventListener('touchstart', () => {
         simulateKey('Tab', 'Tab');
     });

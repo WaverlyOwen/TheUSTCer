@@ -282,6 +282,7 @@ export class Board {
         this.svg.setAttribute("width", `${(level.size()[0] + 2) * 5}vh`);
         this.svg.setAttribute("height", `${(level.size()[1] + 1) * 5}vh`);
         this.svg.setAttribute("viewBox", `-30 -30 ${(level.size()[0] + 2) * 50} ${(level.size()[1] + 1) * 50}`);
+        this.drawBorder();
         this.textG = document.createElementNS("http://www.w3.org/2000/svg", "g");
         this.cellG = document.createElementNS("http://www.w3.org/2000/svg", "g");
         this.roadG = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -305,7 +306,7 @@ export class Board {
         
         this.border = document.createElementNS("http://www.w3.org/2000/svg", "path");
         this.border.setAttribute("d", d);
-        this.border.setAttribute("fill", "none");
+        this.border.setAttribute("fill", "white");
         this.border.setAttribute("stroke", "black");
         this.border.setAttribute("stroke-width", "2");
         this.svg.appendChild(this.border);
@@ -329,6 +330,17 @@ export class Board {
 
         this.start.addEventListener('mouseleave', () => {
             document.getElementById('rule').style.opacity = 0;
+        });
+
+        this.showRule = false;
+        this.start.addEventListener('touchstart', () => {
+            if (this.showRule) {
+                this.showRule = false;
+                document.getElementById('rule').style.opacity = 0;
+            } else {
+                document.getElementById('rule').style.opacity = 1;
+                this.showRule = true;
+            }
         });
     }
 
