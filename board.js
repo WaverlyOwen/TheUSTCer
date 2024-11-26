@@ -1,5 +1,7 @@
 "use strict";
 
+import { isMobileDevice } from './mobile.js';
+
 export class Path {
     constructor(name, board) {
         this.name = name;
@@ -324,24 +326,29 @@ export class Board {
         this.start.setAttribute("stroke-width", "10");
         this.svg.appendChild(this.start);
 
-        this.start.addEventListener('mouseenter', () => {
-            document.getElementById('rule').style.opacity = 1;
-        });
-
-        this.start.addEventListener('mouseleave', () => {
-            document.getElementById('rule').style.opacity = 0;
-        });
-
-        this.showRule = false;
-        this.start.addEventListener('touchstart', () => {
-            if (this.showRule) {
-                this.showRule = false;
-                document.getElementById('rule').style.opacity = 0;
-            } else {
+        if (isMobileDevice()) {
+            this.showRule = false;
+            this.start.addEventListener('touchstart', () => {
+                if (this.showRule) {
+                    this.showRule = false;
+                    document.getElementById('mobileRule').style.opacity = 0;
+                } else {
+                    document.getElementById('mobileRule').style.opacity = 1;
+                    this.showRule = true;
+                }
+            });
+        } else {
+            this.start.addEventListener('mouseenter', () => {
                 document.getElementById('rule').style.opacity = 1;
-                this.showRule = true;
-            }
-        });
+            });
+    
+            this.start.addEventListener('mouseleave', () => {
+                document.getElementById('rule').style.opacity = 0;
+            });
+    
+        }
+        
+        
     }
 
     validAnswer() {

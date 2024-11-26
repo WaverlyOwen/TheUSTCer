@@ -52,8 +52,12 @@ createBoard();
 document.addEventListener("keydown", handleKey);
 
 if (isMobileDevice()) {
+    document.getElementById("rule").remove();
     document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
     document.addEventListener("touchmove", swipeDetector.handleTouchMove, { passive: false});
+    document.getElementById('simulateR').addEventListener('touchstart', () => {
+        simulateKey('R', 'R');
+    });
     document.getElementById('simulateTab').addEventListener('touchstart', () => {
         simulateKey('Tab', 'Tab');
     });

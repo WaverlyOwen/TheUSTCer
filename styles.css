@@ -41,7 +41,7 @@ body, html {
     transition: opacity 0.5s ease-in-out;
 }
 
-#rule {
+#rule, #mobileRule {
     background-color: lightgrey;
     position: absolute;
     text-align: center;

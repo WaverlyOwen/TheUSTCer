@@ -4,7 +4,6 @@ export const createSwipeDetector = (threshold = 5) => {
 
     return {
         handleTouchStart(event) {
-            event.preventDefault();
             const touch = event.touches[0];
             startX = touch.clientX;
             startY = touch.clientY;
