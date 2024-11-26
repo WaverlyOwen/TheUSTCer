@@ -1,43 +1,18 @@
-:root {
-    --theme-color-1: #afecff;
-    --theme-color-2: #eefcff;
-    --border-color: #000000;
-    --background-color: #ffffff;
-    --foreground-color: #ebebeb;
+body, html {
+    margin: 0;
+    height: 100%;
+    background-color: white;
 }
 
-#title   {
+#title {
     position: absolute;
     top: 10vh;
     width: 100%;
     text-align: center;
-    font-family: "Kristen ITC", Arial, sans-serif;
-    font-size: 5vh;
-    font-weight: bold;
-    letter-spacing: 0.3vh;
-}
-
-#ruleTitle {
-  position: absolute;
-  font-weight: bold;
-  top: 2ch;
-  text-align: center;
-  font-size: 3vh;
-  letter-spacing: 0.3vh;
-  font-family: "ZCOOL KuaiLe", sans-serif;
-  width: 100%;
-  height: 10vh;
-}
-#rule {
-  position: absolute;
-  text-align: center;
-  top: 9vh;
-  font-size: 2vh;
-  font-family: "ZCOOL KuaiLe", sans-serif;
-  letter-spacing: 0.3vh;
-  line-height: 3vh;
-  width: 100%;
-  height: 20vh;
+    font-family: "Jua", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 8vh;
 }
 
 #GPA {
@@ -45,380 +20,83 @@
     top: 20vh;
     width: 100%;
     text-align: center;
-    font-family: "Kristen ITC", Arial, sans-serif;
+    font-family: "Jua", sans-serif;
+    font-weight: normal;
+    font-style: normal;
     font-size: 3vh;
 }
 
-#wrong {
+#WA {
     position: absolute;
-    top: 24vh;
-    color: red;
+    top: 25vh;
     width: 100%;
+    color: red;
     text-align: center;
-    font-family: "Kristen ITC", Arial, sans-serif;
-    font-size: 3.5vh;
+    font-family: "Jua", sans-serif;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 5vh;
     opacity: 0;
     transition: opacity 0.5s ease-in-out;
 }
 
-#board {
+#rule {
+    background-color: lightgrey;
+    position: absolute;
+    text-align: center;
+    top: 60vh;
+    font-size: 2vh;
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    letter-spacing: 0.3vh;
+    line-height: 3vh;
+    width: 100%;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.board {
     position: absolute;
     top: 30vh;
     left: 50%;
     transform: translateX(-50%);
-    height: calc(var(--rows) * 5vh + 1vh);
-    width: calc(var(--cols) * 5vh + 1vh);
-    border-width: 0.2vh;
-    border-style: solid;
-    border-color: var(--border-color);
-    border-top-right-radius: 2vh;
-    border-bottom-left-radius: 2vh;
 }
 
-.sign {
-    position: absolute;
+.border {
+    fill: none;
+    stroke: blue;
+    stroke-width: 2;
 }
 
-.sign[type = '0'], .sign[type = '7'], .sign[type = '8'],
-.sign[type = '9'], .sign[type = '10'], .sign[type = '11'],
-.sign[type = '12'], .sign[type = '13'] {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1;
-    width: 3.6vh;
-    height: 3.6vh;
-    border-width: 0.2vh;
-    border-style: solid;
-    border-color: var(--border-color);
-    border-radius: 1vh;
-    font-size: 3vh;
+text {
     font-family: "ZCOOL KuaiLe", sans-serif;
 }
 
-.sign[type = '0'][number = '0'] {
-    background-color: var(--background-color);
-}
-.sign[type = '0'][number = '1'] {
-    background-color: var(--foreground-color);
-}
-
-.sign[type = '1'], .sign[type = '2'] {
-    z-index: 2;
-    background-color: var(--theme-color-1);
-}
-.sign[type = '1'][number = '0'] {
-    width: 2.4vh;
-    height: 1vh;
-  transform: translate(0.8vh, -1vh);
-}
-.sign[type = '1'][number = '1'] {
-    width: 1vh;
-    height: 2.4vh;
-  transform: translate(-1vh, 0.8vh);
-}
-.sign[type = '2'][number = '0'] {
-    width: 4vh;
-    height: 1vh;
-    background-color: var(--theme-color-1);
-    transform: translate(-2.5vh, -1vh);
-}
-.sign[type = '2'][number = '1'] {
-    width: 1vh;
-    height: 4vh;
-    background-color: var(--theme-color-1);
-    transform: translate(-1vh, -2.5vh);
+@keyframes grow {
+    from {
+        r: 10;
+        stroke-width: 10;
+    }
+    to {
+        r: 12.5;
+        stroke-width: 5;
+    }
 }
 
-.sign[type = '3'] {
-    z-index: 2;
-    width: 4vh;
-    height: 4vh;
-    border-color: var(--theme-color-1);
-    border-width: 1vh;
-    border-style: solid;
-    border-radius: 2vh;
-}
-.sign[type = '3'][number = '0'] {
-    clip-path: polygon(50% 50%, 50% 100%, 0% 100%, 0% 50%);
-    transform: translate(-1vh, -6vh);
-}
-.sign[type = '3'][number = '1'] {
-    clip-path: polygon(50% 50%, 0% 50%, 0% 0%, 50% 0%);
-    transform: translate(-1vh, -1vh);
-}
-.sign[type = '3'][number = '2'] {
-    clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%);
-    transform: translate(-6vh, -1vh);
-}
-.sign[type = '3'][number = '3'] {
-    clip-path: polygon(50% 50%, 100% 50%, 100% 100%, 50% 100%);
-    transform: translate(-6vh, -6vh);
+@keyframes shrink {
+    from {
+        r: 12.5;
+        stroke-width: 5;
+    }
+    to {
+        r: 10;
+        stroke-width: 10;
+    }
 }
 
-.sign[type = '4'][number = '0'] {
-    z-index: 4;
-    width: 1vh;
-    height: 1vh;
-    transform: translate(-2vh, -2vh);
-    background-color: var(--theme-color-2);
-    border: 1vh solid var(--theme-color-1);
-    border-radius: 50%;
-    cursor: pointer;
-    transition: transform 0.3s ease, border-width 0.3s ease, width 0.3s ease, height 0.3s ease;
+.start:hover {
+    animation: grow 0.5s forwards;
 }
 
-.sign[type = '4'][number = '0']:hover {
-    width: 2vh;
-    height: 2vh;
-    border-width: 0.5vh;
-}
-
-#menu {
-    position: absolute;
-    z-index: 3;
-    top: 60vh;
-    left: 50%;
-    width: 80vh;
-    height: 30vh;
-    opacity: 0;
-    background-color: #ffffff;
-    border-width: 0.2vh;
-    border-style: solid;
-    border-color: var(--border-color);
-    border-radius: 1vh;
-    transform: translate(-50%, 0);
-    transition: opacity 0.5s ease, border-radius 0.5s ease;
-}
-
-#menu.show {
-  opacity: 1;
-  border-radius: 5vh;
-}
-
-.sign[type = '4'][number = '1'] {
-    z-index: 1;
-    width: 0.4vh;
-    height: 2vh;
-    transform: translate(-0.1vh, -2vh);
-    background-color: var(--background-color);
-}
-.sign[type = '4'][number = '2'] {
-    z-index: 3;
-    width: 2vh;
-    height: 2vh;
-    border: 0.2vh solid var(--border-color);
-    border-radius: 1vh;
-    transform: translateY(-3.3vh);
-    clip-path: polygon(50% 50%, 50% 100%, 0% 100%, 0% 50%);
-}
-.sign[type = '4'][number = '3'] {
-    z-index: 3;
-    width: 3vh;
-    height: 1vh;
-    border-top: 0.2vh solid var(--border-color);
-    border-right: 0.2vh solid var(--border-color);
-    border-bottom: 0.2vh solid var(--border-color);
-    border-top-right-radius: 0.7vh;
-    border-bottom-right-radius: 0.7vh;
-    transform: translateY(-1.15vh);
-    clip-path: polygon(1vh 50%, 1vh 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%);
-}
-.sign[type = '4'][number = '4'] {
-    z-index: 3;
-    width: 2vh;
-    height: 1vh;
-    border-top: 0.2vh solid var(--border-color);
-    border-right: 0.2vh solid var(--border-color);
-    border-bottom: 0.2vh solid var(--border-color);
-    border-top-right-radius: 0.7vh;
-    border-bottom-right-radius: 0.7vh;
-    transform: translate(1vh, -1.15vh);
-    background-color: var(--theme-color-1);
-}
-
-.sign[type = '5'] {
-    z-index: 3;
-    transform: translate(-1vh, -1vh);
-    display: flex;
-    justify-content: center;
-    width: 6vh;
-    height: 1vh;
-    font-size: 1vh;
-    font-family: "ZCOOL KuaiLe", sans-serif;
-}
-
-.sign[type = '5'][number = '0']::before {
-    content: "孺子牛路";
-}
-  
-.sign[type = '5'][number = '1']::before {
-    content: "勤奋路";
-}
-  
-.sign[type = '5'][number = '2']::before {
-    content: "寰宇北路";
-}
-  
-.sign[type = '5'][number = '3']::before {
-    content: "寰宇南路";
-}
-  
-.sign[type = '5'][number = '4']::before {
-    content: "励学路";
-}
-  
-.sign[type = '5'][number = '5']::before {
-    content: "黄山路";
-}
-  
-.sign[type = '5'][number = '6']::before {
-    content: "瀚海路";
-}
-  
-.sign[type = '5'][number = '7']::before {
-    content: "英才路";
-}
-  
-.sign[type = '5'][number = '8']::before {
-    content: "红专路";
-}
-  
-.sign[type = '5'][number = '9']::before {
-    content: "黄山路";
-}
-  
-.sign[type = '5'][number = '10']::before {
-    content: "四牌楼路";
-}
-
-.sign[type = '6'] {
-    z-index: 3;
-    transform: translate(-1vh, -1vh);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 1vh;
-    height: 6vh;
-    font-size: 1vh;
-    font-family: "ZCOOL KuaiLe", sans-serif;
-    writing-mode: vertical-rl;
-}
-
-.sign[type = '6'][number = '0']::before {
-  content: "金寨路";
-}
-.sign[type = '6'][number = '1']::before {
-  content: "郭沫若路";
-}
-.sign[type = '6'][number = '2']::before {
-  content: "天使路";
-}
-.sign[type = '6'][number = '3']::before {
-  content: "玉泉南路";
-}
-.sign[type = '6'][number = '4']::before {
-  content: "玉泉北路";
-}
-.sign[type = '6'][number = '5']::before {
-  content: "肥西路";
-}
-.sign[type = '6'][number = '6']::before {
-  content: "志学路";
-}
-.sign[type = '6'][number = '7']::before {
-  content: "石榴园路";
-}
-.sign[type = '6'][number = '8']::before {
-  content: "寰宇东路";
-}
-.sign[type = '6'][number = '9']::before {
-  content: "寰宇西路";
-}
-.sign[type = '6'][number = '10']::before {
-  content: "济慧路";
-}
-
-.sign[type = '7'] {
-    color: white;
-    background-color: orange;
-}
-.sign[type = '7'][number = '0']::before {
-    content: "少";
-  }
-
-.sign[type = '8'] {
-    color: white;
-    background-color: blue;
-}
-.sign[type = '8'][number = '0']::before {
-  content: "管";
-}
-.sign[type = '8'][number = '1']::before {
-  content: "工";
-}
-.sign[type = '8'][number = '2']::before {
-  content: "数";
-}
-
-.sign[type = '9'] {
-    color: white;
-    background-color: greenyellow;
-}
-.sign[type = '9'][number = '0']::before {
-  content: "网";
-}
-.sign[type = '9'][number = '1']::before {
-  content: "微";
-}
-.sign[type = '9'][number = '2']::before {
-  content: "计";
-}
-.sign[type = '9'][number = '3']::before {
-  content: "生";
-}
-.sign[type = '9'][number = '4']::before {
-  content: "信";
-}
-
-.sign[type = '10'] {
-    color: white;
-    background-color: blueviolet;
-}
-.sign[type = '10'][number = '0']::before {
-  content: "环";
-}
-.sign[type = '10'][number = '1']::before {
-  content: "核";
-}
-.sign[type = '10'][number = '2']::before {
-  content: "地";
-}
-.sign[type = '10'][number = '3']::before {
-  content: "化";
-}
-.sign[type = '10'][number = '4']::before {
-  content: "物";
-}
-
-.sign[type = '11'] {
-    background-color: white;
-    color: red;
-}
-.sign[type = '11'][number = '0']::before {
-  content: "红";
-}
-.sign[type = '11'][number = '1']::before {
-  content: "专";
-}
-
-.sign[type = '12'] {
-    background-color: white;
-    color: blue;
-}
-.sign[type = '12'][number = '0']::before {
-  content: "理";
-}
-.sign[type = '12'][number = '1']::before {
-  content: "实";
+.start:not(:hover) {
+    animation: shrink 0.5s forwards;
 }

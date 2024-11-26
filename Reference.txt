@@ -1,31 +1,14 @@
-map[x][y][0] : cell group - number
-
-map[x][y][1] : node
-[0, 0] : empty
-
-map[x][y][2] : road
-[0, 0] : empty
-[1, 0] : horizontal
-[0, 1] : vertical
-[1, 1] : both
-
-map[x][y][3] : cell type
-
-map[x][y][4] : user node
-
-map[x][y][5] : user road
-
-groupProperties[n][0] : group member count
-groupProperties[n][1] : college index
-groupProperties[n][2] : group type
-groupProperties[n][3] : special cell number
-
 Direction
 0 : right
 1 : down
 2 : left
 3 : top
 4 : delete
+
+signMap
+0 : [horizontal road, number]
+1 : [vertical road, number]
+2 : [type, number]
 
 00 - 00 : white cell
 00 - 01 : gray cell

@@ -1,29 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The USTCer</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
-  </head>
-  <body>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    
+</head>
+<body>
     <div id="title">The USTCer</div>
-    <div id="board"></div>
     <div id="GPA"></div>
-    <div id="menu">
-      <div id="ruleTitle">游戏规则</div>
-      <div id="rule">使用方向键或WASD操控生成路径，退格键删除路径，R键删除路径<br>
-      从左上角的起始点出发，到右下角结束<br>
-      路径需要穿过所有科大校园道路名称<br>
-      路径与四周边界围成的区域中只能包含一种颜色的学院方块<br>
-      且一个区域内只能有一个完整的“理实”和“红专”<br>
-      Tab键更换题目，回车键显示答案，Shift键隐藏答案<br>
-      </div>
+    <div id="WA">WRONG ANSWER</div>
+    <script type="module" src="script.js"></script>
+    <div id="rule">
+        使用方向键或WASD操控生成路径，退格键删除路径，R键清空路径<br>
+        从左上角的起始点出发，到右下角结束<br>
+        路径需要穿过所有科大校园道路名称<br>
+        路径与四周边界围成的区域中只能包含一种颜色的学院方块<br>
+        且一个区域内只能有一个完整的“理实”和“红专”<br>
+        Enter键提交你的答案，如果正确GPA增加，更换题目<br>
+        Tab键更换题目，Control键显示答案，Shift键隐藏答案<br>
     </div>
-    <div id="wrong">Wrong answer!</div>
-    <script src="script.js"></script>
-  </body>
+</body>
 </html>
