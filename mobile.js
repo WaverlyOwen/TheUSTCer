@@ -50,12 +50,11 @@ export const createSwipeDetector = (threshold = 10) => {
 
 export function simulateKey(key, code, options = {}) {
     const event = new KeyboardEvent('keydown', {
-      key: key,            // 键值
-      code: code,          // 键码
-      bubbles: true,       // 允许事件冒泡
-      cancelable: true,    // 允许取消事件
-      ...options           // 可传入额外的配置，如是否按下 Shift、Ctrl 等
+      key: key,
+      code: code,
+      bubbles: true,
+      cancelable: true,
+      ...options
     });
-    // 触发事件
     document.dispatchEvent(event);
 }

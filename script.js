@@ -52,18 +52,18 @@ createBoard();
 document.addEventListener("keydown", handleKey);
 document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
 document.addEventListener("touchmove", swipeDetector.handleTouchMove, false);
-document.getElementById('simulateTab').addEventListener('click', () => {
+document.getElementById('simulateTab').addEventListener('touchstart', () => {
     simulateKey('Tab', 'Tab');
 });
 
-document.getElementById('simulateEnter').addEventListener('click', () => {
+document.getElementById('simulateEnter').addEventListener('touchstart', () => {
     simulateKey('Enter', 'Enter');
 });
 
-document.getElementById('simulateShift').addEventListener('click', () => {
+document.getElementById('simulateShift').addEventListener('touchstart', () => {
     simulateKey('Shift', 'ShiftLeft', { shiftKey: true });
 });
 
-document.getElementById('simulateControl').addEventListener('click', () => {
+document.getElementById('simulateControl').addEventListener('touchstart', () => {
     simulateKey('Control', 'ControlLeft', { ctrlKey: true });
 });
