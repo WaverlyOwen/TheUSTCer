@@ -53,7 +53,7 @@ document.addEventListener("keydown", handleKey);
 
 if (isMobileDevice()) {
     document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
-    document.addEventListener("touchmove", swipeDetector.handleTouchMove, true);
+    document.addEventListener("touchmove", swipeDetector.handleTouchMove, { passive: false });
     document.getElementById('simulateTab').addEventListener('touchstart', () => {
         simulateKey('Tab', 'Tab');
     });
