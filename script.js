@@ -4,6 +4,7 @@ import { createLevel } from './level.js';
 import { Board } from './board.js';
 import { createSwipeDetector } from './mobile.js';
 import { simulateKey } from './mobile.js';
+import { isMobileDevice } from './mobile.js';
 
 function createBoard() {
     if (board !== undefined) {
@@ -42,28 +43,33 @@ function handleKey(event) {
 }
 
 const level = createLevel();
-const swipeDetector = createSwipeDetector(10);
 level.GPA();
+const swipeDetector = createSwipeDetector(5);
 
 let board;
 createBoard();
 
 // Add event listener
 document.addEventListener("keydown", handleKey);
-document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
-document.addEventListener("touchmove", swipeDetector.handleTouchMove, false);
-document.getElementById('simulateTab').addEventListener('touchstart', () => {
-    simulateKey('Tab', 'Tab');
-});
 
-document.getElementById('simulateEnter').addEventListener('touchstart', () => {
-    simulateKey('Enter', 'Enter');
-});
-
-document.getElementById('simulateShift').addEventListener('touchstart', () => {
-    simulateKey('Shift', 'ShiftLeft', { shiftKey: true });
-});
-
-document.getElementById('simulateControl').addEventListener('touchstart', () => {
-    simulateKey('Control', 'ControlLeft', { ctrlKey: true });
-});
+if (isMobileDevice()) {
+    document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
+    document.addEventListener("touchmove", swipeDetector.handleTouchMove, false);
+    document.getElementById('simulateTab').addEventListener('touchstart', () => {
+        simulateKey('Tab', 'Tab');
+    });
+    
+    document.getElementById('simulateEnter').addEventListener('touchstart', () => {
+        simulateKey('Enter', 'Enter');
+    });
+    
+    document.getElementById('simulateShift').addEventListener('touchstart', () => {
+        simulateKey('Shift', 'ShiftLeft', { shiftKey: true });
+    });
+    
+    document.getElementById('simulateControl').addEventListener('touchstart', () => {
+        simulateKey('Control', 'ControlLeft', { ctrlKey: true });
+    });
+} else {
+    document.getElementById('mobile').remove();
+}

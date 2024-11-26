@@ -45,10 +45,10 @@ body, html {
     position: absolute;
     text-align: center;
     top: 60vh;
-    font-size: 2vh;
+    font-size: 1.5vh;
     font-family: "ZCOOL KuaiLe", sans-serif;
-    letter-spacing: 0.3vh;
-    line-height: 3vh;
+    letter-spacing: 0.2vh;
+    line-height: 2vh;
     width: 100%;
     opacity: 0;
     transition: opacity 0.5s ease-in-out;

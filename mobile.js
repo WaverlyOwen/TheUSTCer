@@ -1,4 +1,4 @@
-export const createSwipeDetector = (threshold = 10) => {
+export const createSwipeDetector = (threshold = 5) => {
     let startX = 0;
     let startY = 0;
 
@@ -58,3 +58,7 @@ export function simulateKey(key, code, options = {}) {
     });
     document.dispatchEvent(event);
 }
+
+export const isMobileDevice = () => {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+};
