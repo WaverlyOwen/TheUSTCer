@@ -291,6 +291,7 @@ export class Board {
         this.svg.appendChild(this.cellG);
         this.svg.appendChild(this.textG);
         this.svg.appendChild(this.roadG);
+        document.body.insertBefore(this.svg, document.getElementById("title"));
     }
 
     drawBorder() {
@@ -312,7 +313,6 @@ export class Board {
         this.border.setAttribute("stroke", "black");
         this.border.setAttribute("stroke-width", "2");
         this.svg.appendChild(this.border);
-        document.body.appendChild(this.svg);
     }
 
     drawStart() {
