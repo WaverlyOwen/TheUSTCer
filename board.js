@@ -402,7 +402,7 @@ export class Board {
 
         for (let i = 0; i < this.answer.group.length; i++) {
             const member = this.answer.group[i];
-            if (member > 8) {
+            if (member >= 4) {
                 let set, queue;
                 switch (this.random(4)) {
                     case 1 :
