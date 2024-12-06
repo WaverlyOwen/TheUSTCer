@@ -3,7 +3,7 @@
 import { isMobileDevice } from './mobile.js';
 
 export class Path {
-    constructor(name, board) {
+    constructor(name, board, themeColor) {
         this.name = name;
         this.size = board.size;
         this.board = board;
@@ -17,7 +17,9 @@ export class Path {
         this.group = [];
 
         this.line = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        this.line.setAttribute("stroke", "#424874");
+        
+        this.themeColor = themeColor;
+        this.line.setAttribute("stroke", this.themeColor.darkColor);
         this.line.setAttribute("stroke-width", "8");
         this.line.setAttribute("stroke-linecap", "round");
         this.line.setAttribute("fill", "none");
@@ -278,6 +280,7 @@ export class Board {
     constructor(name, level) {
         this.name = name;
         this.size = level.size();
+        this.themeColor = this.getLightAndDarkColors();
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         this.svg.setAttribute("id", name);
         this.svg.classList.add("board");
@@ -292,6 +295,19 @@ export class Board {
         this.svg.appendChild(this.textG);
         this.svg.appendChild(this.roadG);
         document.body.insertBefore(this.svg, document.getElementById("title"));
+    }
+
+    getLightAndDarkColors() {
+        const hue = Math.floor(Math.random() * 360);
+        const saturation = Math.floor(Math.random() * 10) + 10;
+    
+        const lightnessLight = Math.floor(Math.random() * 21) + 75;
+        const lightnessDark = lightnessLight - Math.floor(Math.random() * 10 + 10);
+    
+        const lightColor = `hsl(${hue}, ${saturation}%, ${lightnessLight}%)`;
+        const darkColor = `hsl(${hue}, ${saturation}%, ${lightnessDark}%)`;
+    
+        return { lightColor, darkColor };
     }
 
     drawBorder() {
@@ -321,8 +337,8 @@ export class Board {
         this.start.setAttribute("cx", "5");
         this.start.setAttribute("cy", "5");
         this.start.setAttribute("r", "10");
-        this.start.setAttribute("fill", "#DCD6F7");
-        this.start.setAttribute("stroke", "#424874");
+        this.start.setAttribute("fill", this.themeColor.lightColor);
+        this.start.setAttribute("stroke", this.themeColor.darkColor);
         this.start.setAttribute("stroke-width", "10");
         this.svg.appendChild(this.start);
 
@@ -383,11 +399,11 @@ export class Board {
 
     question() {
         if (!this.answer) {
-            this.answer = new Path("answer", this);
+            this.answer = new Path("answer", this, this.themeColor);
             this.answer.generate();
             while (!this.validAnswer()) {
                 this.answer.destroy();
-                this.answer = new Path("answer", this);
+                this.answer = new Path("answer", this, this.themeColor);
                 this.answer.generate();
             }
         }
@@ -600,7 +616,7 @@ export class Board {
     }
 
     user() {
-        this.userPath = new Path("user", this);
+        this.userPath = new Path("user", this, this.themeColor);
         document.addEventListener("keydown", this.handleKey.bind(this));
         document.addEventListener("keydown", this.userPath.handleKey.bind(this.userPath));
     }

@@ -18,7 +18,7 @@ export function createLevel() {
             this.GPA();
         },
         GPA: function() {
-            const scalingFactor = 0.05;
+            const scalingFactor = 0.1;
             const maxGPA = 4.3;
             const minGPA = 1.0;
             let GPA = (minGPA + (maxGPA - minGPA) * (1 - Math.exp(-scalingFactor * level))).toFixed(2);
@@ -26,6 +26,9 @@ export function createLevel() {
         },
         size: function() {
             return [Math.floor((level) / 10 + 1.5), Math.floor((level) / 10 + 1)];
+        },
+        set: function(n) {
+            level = n;
         }
     }
 }
