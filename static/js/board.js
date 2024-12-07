@@ -1,6 +1,7 @@
 "use strict";
 
-import { isMobileDevice } from './mobile.js';
+import * as Common from './common.js';
+import * as Draw from './draw.js';
 
 export class Path {
     constructor(name, board, themeColor) {
@@ -19,10 +20,12 @@ export class Path {
         this.line = document.createElementNS("http://www.w3.org/2000/svg", "path");
         
         this.themeColor = themeColor;
-        this.line.setAttribute("stroke", this.themeColor.darkColor);
-        this.line.setAttribute("stroke-width", "8");
-        this.line.setAttribute("stroke-linecap", "round");
-        this.line.setAttribute("fill", "none");
+        Common.setAttribute(this.line, [
+            ["stroke", this.themeColor.darkColor], 
+            ["stroke-width", "8"], 
+            ["stroke-linecap", "round"], 
+            ["fill", "none"]
+        ]);
         this.board.svg.appendChild(this.line);
     }
 
@@ -30,7 +33,6 @@ export class Path {
         const direction = [[1, 0], [0, 1], [-1, 0], [0, -1]];
         return [position[0] + direction[now][0] * length, position[1] + direction[now][1] * length];
     }
-
 
     evaluateNodeType(last, now) {
         if (last === now) {
@@ -42,20 +44,6 @@ export class Path {
         }
     }
 
-    drawPath(position, distance) {
-        const now = this.queue[distance - 1];
-        const last = this.queue[distance - 2];
-        const node = this.evaluateNodeType(last, now);
-        const [lastX, lastY] = this.move([5 + position[0] * 50, 5 + position[1] * 50], (now + 2) % 4, 35);
-        if (last === now || distance === 1) {
-            this.d.push(`L ${lastX} ${lastY}`);
-        } else {
-            this.d.push(`A 15 15 0 0 ${Number((last + 1) % 4 == now)} ${lastX} ${lastY}`);
-        }
-        const [newX, newY] = this.move([lastX, lastY], now, 20);
-        this.d.push(`L ${newX} ${newY}`);
-    }
-    
     step(now) {
         const [newX, newY] = this.move([this.x, this.y], now, 1);
         if (0 <= newX && newX <= this.size[0] && 
@@ -129,7 +117,7 @@ export class Path {
             }
 
             if (this.step(now)) {
-                this.drawPath([this.x, this.y], this.distance);
+                Draw.path(this, [this.x, this.y], this.distance);
                 this.updateLine();
                 if (this.valid()) {
                     last = now;
@@ -141,7 +129,7 @@ export class Path {
 
         // Last step
         this.step(0);
-        this.drawPath([this.x, this.y], this.distance);
+        Draw.path(this, [this.x, this.y], this.distance);
         this.updateLine();
         this.hide();
     }
@@ -167,7 +155,7 @@ export class Path {
         switch (event.key) {
             case 'd' : case 'D' : case 'ArrowRight' : 
                 if (this.step(0)) {
-                    this.drawPath([this.x, this.y], this.distance);
+                    Draw.path(this, [this.x, this.y], this.distance);
                     this.updateLine();
                 } else if (2 === this.queue[this.distance - 1]) {
                     this.back();
@@ -175,7 +163,7 @@ export class Path {
                 break;
             case 's' : case 'S' : case 'ArrowDown' : 
                 if (this.step(1)) {
-                    this.drawPath([this.x, this.y], this.distance);
+                    Draw.path(this, [this.x, this.y], this.distance);
                     this.updateLine();
                 } else if (3 === this.queue[this.distance - 1]) {
                     this.back();
@@ -183,7 +171,7 @@ export class Path {
                 break;
             case 'a' : case 'A' : case 'ArrowLeft' : 
                 if (this.step(2)) {
-                    this.drawPath([this.x, this.y], this.distance);
+                    Draw.path(this, [this.x, this.y], this.distance);
                     this.updateLine();
                 } else if (0 === this.queue[this.distance - 1]) {
                     this.back();
@@ -191,7 +179,7 @@ export class Path {
                 break;
             case 'w' : case 'W' : case 'ArrowUp' : 
                 if (this.step(3)) {
-                    this.drawPath([this.x, this.y], this.distance);
+                    Draw.path(this, [this.x, this.y], this.distance);
                     this.updateLine();
                 } else if (1 === this.queue[this.distance - 1]) {
                     this.back();
@@ -280,14 +268,16 @@ export class Board {
     constructor(name, level) {
         this.name = name;
         this.size = level.size();
-        this.themeColor = this.getLightAndDarkColors();
+        this.themeColor = Common.getThemeColors();
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        this.svg.setAttribute("id", name);
+        Common.setAttribute(this.svg, [
+            ["id", name], 
+            ["width", `${(level.size()[0] + 2) * 5}vh`],
+            ["height", `${(level.size()[1] + 1) * 5}vh`], 
+            ["viewBox", `-30 -30 ${(level.size()[0] + 2) * 50} ${(level.size()[1] + 1) * 50}`]
+        ]);
         this.svg.classList.add("board");
-        this.svg.setAttribute("width", `${(level.size()[0] + 2) * 5}vh`);
-        this.svg.setAttribute("height", `${(level.size()[1] + 1) * 5}vh`);
-        this.svg.setAttribute("viewBox", `-30 -30 ${(level.size()[0] + 2) * 50} ${(level.size()[1] + 1) * 50}`);
-        this.drawBorder();
+        Draw.border(this);
         this.textG = document.createElementNS("http://www.w3.org/2000/svg", "g");
         this.cellG = document.createElementNS("http://www.w3.org/2000/svg", "g");
         this.roadG = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -295,76 +285,6 @@ export class Board {
         this.svg.appendChild(this.textG);
         this.svg.appendChild(this.roadG);
         document.body.insertBefore(this.svg, document.getElementById("title"));
-    }
-
-    getLightAndDarkColors() {
-        const hue = Math.floor(Math.random() * 360);
-        const saturation = Math.floor(Math.random() * 10) + 10;
-    
-        const lightnessLight = Math.floor(Math.random() * 21) + 75;
-        const lightnessDark = lightnessLight - Math.floor(Math.random() * 10 + 10);
-    
-        const lightColor = `hsl(${hue}, ${saturation}%, ${lightnessLight}%)`;
-        const darkColor = `hsl(${hue}, ${saturation}%, ${lightnessDark}%)`;
-    
-        return { lightColor, darkColor };
-    }
-
-    drawBorder() {
-        const d = `M 0 0 
-             L ${this.size[0] * 50 - 10} 0 
-             A 20 20 0 0 1 ${this.size[0] * 50 + 10} 20 
-             L ${this.size[0] * 50 + 10} ${this.size[1] * 50 - 10} 
-             A 10 10 0 0 0 ${this.size[0] * 50 + 20} ${this.size[1] * 50}
-             L ${this.size[0] * 50 + 40} ${this.size[1] * 50} 
-             A 5 5 0 0 1 ${this.size[0] * 50 + 40} ${this.size[1] * 50 + 10}
-             L 20 ${this.size[1] * 50 + 10} 
-             A 20 20 0 0 1 0 ${this.size[1] * 50 - 10} 
-             L 0 0  
-             Z`;
-        
-        this.border = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        this.border.setAttribute("d", d);
-        this.border.setAttribute("fill", "white");
-        this.border.setAttribute("stroke", "black");
-        this.border.setAttribute("stroke-width", "2");
-        this.svg.appendChild(this.border);
-    }
-
-    drawStart() {
-        this.start = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        this.start.classList.add("start");
-        this.start.setAttribute("cx", "5");
-        this.start.setAttribute("cy", "5");
-        this.start.setAttribute("r", "10");
-        this.start.setAttribute("fill", this.themeColor.lightColor);
-        this.start.setAttribute("stroke", this.themeColor.darkColor);
-        this.start.setAttribute("stroke-width", "10");
-        this.svg.appendChild(this.start);
-
-        if (isMobileDevice()) {
-            this.showRule = false;
-            this.start.addEventListener('touchstart', () => {
-                if (this.showRule) {
-                    this.showRule = false;
-                    document.getElementById('mobileRule').style.opacity = 0;
-                } else {
-                    document.getElementById('mobileRule').style.opacity = 1;
-                    this.showRule = true;
-                }
-            });
-        } else {
-            this.start.addEventListener('mouseenter', () => {
-                document.getElementById('rule').style.opacity = 1;
-            });
-    
-            this.start.addEventListener('mouseleave', () => {
-                document.getElementById('rule').style.opacity = 0;
-            });
-    
-        }
-        
-        
     }
 
     validAnswer() {
@@ -375,26 +295,6 @@ export class Board {
             }
         }
         return true;
-    }
-
-    randomSet(n, max) {
-        let set = new Set();
-        while (set.size < n) {
-            set.add(Math.floor(Math.random() * max));
-        }
-        return set;
-    }
-
-    random(max) {
-        return Math.floor(Math.random() * max);
-    }
-
-    shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; --i) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
     }
 
     question() {
@@ -409,7 +309,7 @@ export class Board {
         }
 
         let groupType = [];
-        const types = this.shuffleArray([7, 8, 9, 10]);
+        const types = Common.shuffleArray([7, 8, 9, 10]);
         const typeScale = [2, 2, 2, 4, 4, 11, 11, 1, 3, 5, 5, 2, 2, 5];
         const roadRate = 0.2;
         const signRate = 0.5;
@@ -420,19 +320,19 @@ export class Board {
             const member = this.answer.group[i];
             if (member >= 4) {
                 let set, queue;
-                switch (this.random(4)) {
+                switch (Common.random(4)) {
                     case 1 :
-                        set = this.randomSet(2, this.answer.group[i]);
+                        set = Common.randomSet(2, this.answer.group[i]);
                         queue =[...set].map((element, index) => [element, 11, index]);
                         groupType.push([types[i % 4], queue]);
                         break;
                     case 2 :
-                        set = this.randomSet(2, this.answer.group[i]);
+                        set = Common.randomSet(2, this.answer.group[i]);
                         queue =[...set].map((element, index) => [element, 12, index]);
                         groupType.push([types[i % 4], queue]);
                         break;
                     case 3 :
-                        set = this.randomSet(4, this.answer.group[i]);
+                        set = Common.randomSet(4, this.answer.group[i]);
                         queue =[...set].map((element, index) => [element, 11 + Math.floor(index / 2), index % 2]);
                         groupType.push([types[i % 4], queue]);
                         break;
@@ -453,7 +353,7 @@ export class Board {
                 if (type = groupType[group][1].find(cell => cell[0] === this.answer.group[group])) {
                     this.sign[i][j][2] = [type[1], type[2]];
                 } else if (Math.random() < signRate / Math.sqrt(this.answer.group[this.answer.groupMap[i][j]])) {
-                    this.sign[i][j][2] = [groupType[group][0], this.random(typeScale[groupType[group][0]])];
+                    this.sign[i][j][2] = [groupType[group][0], Common.random(typeScale[groupType[group][0]])];
                 } else if ((i + j) % 2) {
                     this.sign[i][j][2] = [0, 1];
                 } else {
@@ -468,118 +368,13 @@ export class Board {
         for (let i = 0; i < this.answer.distance; i++) {
             const now = this.answer.queue[i];
             if (now < 2) {
-                this.sign[position[0]][position[1]][now] = [Number(Math.random() < roadRate), this.random(typeScale[5 + now])];
+                this.sign[position[0]][position[1]][now] = [Number(Math.random() < roadRate), Common.random(typeScale[5 + now])];
                 position = this.answer.move(position, now, 1);
             } else {
                 position = this.answer.move(position, now, 1);
-                this.sign[position[0]][position[1]][now % 2] = [Number(Math.random() < roadRate), this.random(typeScale[5 + now])];
+                this.sign[position[0]][position[1]][now % 2] = [Number(Math.random() < roadRate), Common.random(typeScale[5 + now])];
             }
         }
-    }
-
-    drawRoad(position, type) {
-        let road = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        road.setAttribute("x", 50 * position[0]);
-        road.setAttribute("y", 50 * position[1]);
-        road.setAttribute("text-anchor", "middle");
-        road.setAttribute("font-size", 8);
-        const name = [
-            [
-                "孺子牛路", 
-                "勤奋路", 
-                "寰宇北路", 
-                "寰宇南路", 
-                "励学路", 
-                "黄山路", 
-                "瀚海路", 
-                "英才路", 
-                "红专路", 
-                "黄山路", 
-                "四牌楼路", 
-            ], 
-            [
-                "金寨路", 
-                "郭沫若路", 
-                "天使路", 
-                "玉泉南路", 
-                "玉泉北路", 
-                "肥西路", 
-                "志学路", 
-                "石榴园路", 
-                "寰宇东路", 
-                "寰宇西路", 
-                "济慧路", 
-            ]
-        ];
-
-        if (type[0] === 6) {
-            road.setAttribute("x", 5 + 50 * position[0]);
-            road.setAttribute("y", 30 + 50 * position[1]);
-            road.setAttribute("writing-mode", "vertical-rl");
-            road.innerHTML = name[1][type[1]];
-        } else {
-            road.setAttribute("x", 30 + 50 * position[0]);
-            road.setAttribute("y", 8 + 50 * position[1]);
-            road.innerHTML = name[0][type[1]];
-        }
-        this.roadG.appendChild(road);
-    }
-
-    drawCell(position, type) {
-        let cell = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        cell.setAttribute("x", 10 + 50 * position[0]);
-        cell.setAttribute("y", 10 + 50 * position[1]);
-        cell.setAttribute("width", 40);
-        cell.setAttribute("height", 40);
-        cell.setAttribute("rx", 10);
-        cell.setAttribute("ry", 10);
-        cell.setAttribute("stroke", "black");
-        cell.setAttribute('stroke-width', "2");
-
-        let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", 30 + 50 * position[0]);
-        text.setAttribute("y", 41 + 50 * position[1]);
-        text.setAttribute("text-anchor", "middle");
-        text.setAttribute("font-size", 30);
-        const name = [
-            ["少"], 
-            ["管", "工", "数"], 
-            ["网", "微", "计", "生", "信"], 
-            ["环", "核", "地", "化", "物"], 
-            ["红", "专"], 
-            ["理", "实"] 
-        ];
-
-        const color = [
-            "orange", 
-            "blue", 
-            "green",
-            "purple", 
-            "red", 
-            "blue"
-        ]
-
-        if (type[0]) {
-            text.innerHTML = name[type[0] - 7][type[1]];
-            this.textG.appendChild(text);
-            if (type[0] < 11) {
-                text.setAttribute("fill", "white");
-                cell.setAttribute("fill", color[type[0] - 7]);
-            } else {
-                text.setAttribute("fill", color[type[0] - 7]);
-                cell.setAttribute("fill", "white");
-            }
-        } else {
-            text.remove();
-            text = null;
-            if (type[1]) {
-                cell.setAttribute("fill", "#F0F0F0");
-            } else {
-                cell.setAttribute("fill", "white");
-            }
-        }
-
-        this.cellG.appendChild(cell);
     }
 
     drawSign() {
@@ -590,12 +385,12 @@ export class Board {
         for (let i = 0; i < this.size[0]; i++) {
             for (let j = 0; j < this.size[1]; j++) {
                 if (this.sign[i][j][0][0]) {
-                    this.drawRoad([i, j], [5, this.sign[i][j][0][1]]);
+                    Draw.road(this, [i, j], [5, this.sign[i][j][0][1]])
                 }
                 if (this.sign[i][j][1][0]) {
-                    this.drawRoad([i, j], [6, this.sign[i][j][1][1]]);
+                    Draw.road(this, [i, j], [6, this.sign[i][j][1][1]]);
                 }
-                this.drawCell([i, j], this.sign[i][j][2]);
+                Draw.cell(this, [i, j], this.sign[i][j][2]);
             }
         }
     }

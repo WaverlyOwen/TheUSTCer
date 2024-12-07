@@ -1,4 +1,8 @@
-export const createSwipeDetector = (threshold = 5) => {
+"use strict";
+
+import * as Common from './common.js';
+
+const createSwipeDetector = (threshold = 5) => {
     let startX = 0;
     let startY = 0;
 
@@ -47,7 +51,7 @@ export const createSwipeDetector = (threshold = 5) => {
     }
 };
 
-export function simulateKey(key, code, options = {}) {
+function simulateKey(key, code, options = {}) {
     const event = new KeyboardEvent('keydown', {
       key: key,
       code: code,
@@ -61,3 +65,38 @@ export function simulateKey(key, code, options = {}) {
 export const isMobileDevice = () => {
     return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 };
+
+export function mobile() {
+    if (!isMobileDevice()) {
+        Common.remove('#mobileRule');
+        Common.remove('#mobile');
+        return;
+    }
+
+    Common.remove("#rule");
+    
+    const swipeDetector = createSwipeDetector(5);
+    document.addEventListener("touchstart", swipeDetector.handleTouchStart, false);
+    document.addEventListener("touchmove", swipeDetector.handleTouchMove, { passive: false});
+
+    document.getElementById('simulateR').addEventListener('touchstart', () => {
+        simulateKey('R', 'R');
+    });
+
+    document.getElementById('simulateTab').addEventListener('touchstart', () => {
+        simulateKey('Tab', 'Tab');
+    });
+        
+    document.getElementById('simulateEnter').addEventListener('touchstart', () => {
+        simulateKey('Enter', 'Enter');
+    });
+   
+    document.getElementById('simulateShift').addEventListener('touchstart', () => {
+        simulateKey('Shift', 'ShiftLeft', { shiftKey: true });
+    });
+    
+    document.getElementById('simulateControl').addEventListener('touchstart', () => {
+        simulateKey('Control', 'ControlLeft', { ctrlKey: true });
+    });
+    
+}

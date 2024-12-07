@@ -1,0 +1,83 @@
+@keyframes animation {
+    from {
+        opacity: 0;
+        transform: scale(1.2) rotateX(45deg);
+    }
+    to {
+        /* 默认状态无需额外定义 */
+    }
+}
+
+@-webkit-keyframes animation {
+    from {
+        opacity: 0;
+        -webkit-transform: scale(1.2) rotateX(45deg);
+        transform: scale(1.2) rotateX(45deg);
+    }
+    to {
+        /* 默认状态无需额外定义 */
+    }
+}
+
+.slider div p{
+    color:#1c1c1c;
+    position:absolute;
+    bottom:-5vh;
+    font-family:font;
+    font-size:1.4vh;
+}
+
+.slider{
+    -webkit-animation: animation 1s ease .8s backwards;
+    animation: animation 1s ease .8s backwards;
+
+    position: absolute;
+    margin:6vh auto 0 auto;
+    left: 0;
+    right: 0;
+    height:36vh;
+    width:24vh;
+    padding:4vh;
+    bottom: 0;
+
+    perspective:100vh;
+    transition:ease-in-out .2s;
+}
+
+.slide img {
+    text-align:center;
+    width:100%;
+    height:100%;
+    -webkit-user-drag: none; /* 保留 WebKit 前缀以兼容旧版 Safari */
+    pointer-events: none; /* 禁止所有鼠标事件 */
+    user-select: none; /* 禁止用户选择内容 */
+    -webkit-user-select: none; /* WebKit 前缀 */
+    -moz-user-select: none; /* Firefox 前缀 */
+    border-radius: 0.5vh;
+}
+
+.slide{
+    -webkit-user-select: none;
+    user-select: none;
+    -moz-user-select: none;
+    position: absolute;
+    height: 28vh;
+    width: 24vh;
+
+    box-shadow: 0 1vh 3vh 0 rgba(0,0,0,0.3);
+    background: #fcfcfc;
+    -webkit-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+    -moz-transform-style: preserve-3d;
+    text-align: center;
+    border: 1.2vh white solid;
+    box-sizing: border-box;
+    border-bottom: 5.5vh white solid;
+    border-radius: 1vh;
+}
+
+.transition {
+    -webkit-transition: cubic-bezier(0,1.95,.49,.73) .4s ;
+    -moz-transition: cubic-bezier(0,1.95,.49,.73) .4s ;
+    transition: cubic-bezier(0,1.95,.49,.73) .4s ;
+}
