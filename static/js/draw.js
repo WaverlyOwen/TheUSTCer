@@ -52,7 +52,6 @@ export function dot(board, swipeDetector) {
         ["stroke-width", "10"]
     ]);
     board.svg.appendChild(board.dot);
-
     Device.menu(board.dot, swipeDetector);
 }
 

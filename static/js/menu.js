@@ -13,7 +13,7 @@ function control(slider) {
     let Z_DIS = 50;
     let Y_DIS = 10;
     let TRANS_DUR = 0.4;
-    let images=document.querySelectorAll('img');
+    let images = document.querySelectorAll('img');
     for(let i = 0; i < images.length; i++)
     {
         images[i].onmousemove=function(e){
@@ -145,6 +145,7 @@ function control(slider) {
 export function createMenu() {
     let slider = document.createElement('div');
     slider.classList.add('slider');
+    slider.classList.add('fade-in');
     document.body.appendChild(slider);
 
     fetch('./static/html/menu.html')

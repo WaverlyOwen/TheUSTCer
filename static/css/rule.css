@@ -1,21 +1,43 @@
-@keyframes animation {
+@keyframes fade-in {
     from {
         opacity: 0;
         transform: scale(1.2) rotateX(45deg);
     }
     to {
-        /* 默认状态无需额外定义 */
     }
 }
 
-@-webkit-keyframes animation {
+@-webkit-keyframes fade-in {
     from {
         opacity: 0;
         -webkit-transform: scale(1.2) rotateX(45deg);
         transform: scale(1.2) rotateX(45deg);
     }
     to {
-        /* 默认状态无需额外定义 */
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+        transform: scale(1) rotateX(0deg);
+    }
+    to {
+        opacity: 0;
+        transform: scale(1.1) rotateX(45deg);
+    }
+}
+
+@-webkit-keyframes fade-out {
+    from {
+        opacity: 1;
+        -webkit-transform: scale(1) rotateX(0deg);
+        transform: scale(1) rotateX(0deg);
+    }
+    to {
+        opacity: 0;
+        -webkit-transform: scale(1.1) rotateX(45deg);
+        transform: scale(1.1) rotateX(45deg);
     }
 }
 
@@ -28,8 +50,6 @@
 }
 
 .slider{
-    -webkit-animation: animation 1s ease .8s backwards;
-    animation: animation 1s ease .8s backwards;
 
     position: absolute;
     margin:6vh auto 0 auto;
@@ -44,15 +64,25 @@
     transition:ease-in-out .2s;
 }
 
+.slider.fade-in {
+    -webkit-animation: fade-in .8s ease .2s backwards;
+    animation: fade-in .8s ease .2s backwards;
+}
+
+.slider.fade-out {
+    -webkit-animation: fade-out .6s ease backwards;
+    animation: fade-out .6s ease backwards;
+}
+
 .slide img {
     text-align:center;
     width:100%;
     height:100%;
-    -webkit-user-drag: none; /* 保留 WebKit 前缀以兼容旧版 Safari */
-    pointer-events: none; /* 禁止所有鼠标事件 */
-    user-select: none; /* 禁止用户选择内容 */
-    -webkit-user-select: none; /* WebKit 前缀 */
-    -moz-user-select: none; /* Firefox 前缀 */
+    -webkit-user-drag: none; /* Safari */
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none; /* WebKit */
+    -moz-user-select: none; /* Firefox */
     border-radius: 0.5vh;
 }
 
@@ -81,3 +111,19 @@
     -moz-transition: cubic-bezier(0,1.95,.49,.73) .4s ;
     transition: cubic-bezier(0,1.95,.49,.73) .4s ;
 }
+
+#dark-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+
+  #dark-overlay.active {
+    opacity: 1;
+  }

@@ -98,24 +98,49 @@ export function menu(dot, swipeDetector) {
         dot.show = 0;
     }
 
-    if (isMobileDevice()) {
-        dot.addEventListener('touchstart', () => {
-            if (dot.show) {
+    function handleDot() {
+        if (dot.show) {
+            if(swipeDetector){
                 swipeDetector.addEventListener();
-                Common.remove('.slider');
-            } else {
-                swipeDetector.removeEventListener();
-                Menu.createMenu();
             }
-            dot.show = !dot.show;
-        });
-    } else {
-        dot.addEventListener('mouseenter', () => {
-            document.getElementById('rule').style.opacity = 1;
-        });
 
-        dot.addEventListener('mouseleave', () => {
-            document.getElementById('rule').style.opacity = 0;
-        });
+            const overlay = document.getElementById('dark-overlay');
+            
+            let slider = document.querySelector('.slider');
+            slider.classList.remove('fade-in');
+            slider.classList.add('fade-out');
+
+            if (overlay) {
+                overlay.classList.remove('active');
+                
+                setTimeout(() => {
+                    if (!overlay.classList.contains('active')) {
+                        overlay.remove();
+                        Common.remove('.slider');
+                    }
+                }, 500);
+            }
+
+        } else {
+            if(swipeDetector){
+                swipeDetector.removeEventListener();
+            }
+
+            let overlay = document.getElementById('dark-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'dark-overlay';
+                document.body.appendChild(overlay);
+            }
+
+            requestAnimationFrame(() => {
+                overlay.classList.add('active');
+            });
+
+            Menu.createMenu();
+        }
+        dot.show = !dot.show;
     }
+
+    dot.addEventListener(isMobileDevice() ? 'touchstart' : 'mousedown', handleDot);
 }

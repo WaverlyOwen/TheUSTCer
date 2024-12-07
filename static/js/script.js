@@ -5,7 +5,6 @@ import { Board } from './board.js';
 import * as Draw from './draw.js';
 import * as Device from './device.js';
 import * as Common from './common.js';
-import * as Menu from './menu.js';
 
 function createBoard(board, level, swipeDetector) {
     if (board !== undefined) {
