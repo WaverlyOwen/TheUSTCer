@@ -148,15 +148,15 @@ export function createMenu() {
     slider.classList.add('fade-in');
     document.body.appendChild(slider);
 
-    fetch('./static/html/menu.html')
+    fetch('./static/txt/menu.txt')
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok ' + response.statusText);
             }
             return response.text();
         })
-        .then(htmlContent => {
-            slider.innerHTML = htmlContent;
+        .then(textContent => {
+            slider.innerHTML = textContent;
             control(slider);
         })
         .catch(error => {

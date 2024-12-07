@@ -45,8 +45,9 @@
     color:#1c1c1c;
     position:absolute;
     bottom:-5vh;
-    font-family:font;
-    font-size:1.4vh;
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    font-size: 1.4vh;
+    line-height: 1.8vh;
 }
 
 .slider{
@@ -124,6 +125,13 @@
     pointer-events: none;
   }
 
-  #dark-overlay.active {
+#dark-overlay.active {
     opacity: 1;
-  }
+}
+
+.example {
+    position: absolute;
+    top: 10vh;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}

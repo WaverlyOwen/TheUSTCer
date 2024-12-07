@@ -453,7 +453,7 @@ export class Board {
         }
 
         for (const info of group) {
-            if (info[2][0] !== info[2][1] && info[2][2] !== info[2][3]) {
+            if (info[2][0] !== info[2][1] || info[2][2] !== info[2][3]) {
                 return false;
             }
         }

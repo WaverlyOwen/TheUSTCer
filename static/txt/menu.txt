@@ -1,0 +1,143 @@
+<div class="slide">
+    <svg width="24vh" height="21vh" viewBox="-30 -30 400 350" class="example"><path d="M 0 0 
+         L 290 0 
+         A 20 20 0 0 1 310 20 
+         L 310 290 
+         A 10 10 0 0 0 320 300
+         L 340 300 
+         A 5 5 0 0 1 340 310
+         L 20 310 
+         A 20 20 0 0 1 0 290 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="10" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="210" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="260" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="60" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="210" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="green"></rect><rect x="60" y="260" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="110" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="110" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="110" y="210" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="110" y="260" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="160" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="160" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="160" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="160" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="160" y="210" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="160" y="260" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="210" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="210" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="210" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="210" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect><rect x="210" y="210" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="210" y="260" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="260" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="260" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="260" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="260" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="260" y="210" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect><rect x="260" y="260" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect></g><g><text x="30" y="141" text-anchor="middle" font-size="30" fill="red">红</text><text x="30" y="191" text-anchor="middle" font-size="30" fill="red">专</text><text x="80" y="91" text-anchor="middle" font-size="30" fill="blue">实</text><text x="80" y="141" text-anchor="middle" font-size="30" fill="blue">理</text><text x="80" y="241" text-anchor="middle" font-size="30" fill="white">信</text><text x="80" y="291" text-anchor="middle" font-size="30" fill="blue">实</text><text x="130" y="41" text-anchor="middle" font-size="30" fill="white">核</text><text x="130" y="191" text-anchor="middle" font-size="30" fill="white">化</text><text x="130" y="241" text-anchor="middle" font-size="30" fill="white">物</text><text x="130" y="291" text-anchor="middle" font-size="30" fill="blue">理</text><text x="180" y="41" text-anchor="middle" font-size="30" fill="white">数</text><text x="180" y="91" text-anchor="middle" font-size="30" fill="white">环</text><text x="180" y="191" text-anchor="middle" font-size="30" fill="white">管</text><text x="230" y="141" text-anchor="middle" font-size="30" fill="white">管</text><text x="230" y="191" text-anchor="middle" font-size="30" fill="white">少</text><text x="230" y="291" text-anchor="middle" font-size="30" fill="white">工</text><text x="280" y="41" text-anchor="middle" font-size="30" fill="white">工</text><text x="280" y="91" text-anchor="middle" font-size="30" fill="blue">实</text><text x="280" y="141" text-anchor="middle" font-size="30" fill="blue">理</text><text x="280" y="241" text-anchor="middle" font-size="30" fill="white">少</text><text x="280" y="291" text-anchor="middle" font-size="30" fill="white">少</text></g><g><text text-anchor="middle" font-size="8" x="105" y="80" writing-mode="vertical-rl">志学路</text><text text-anchor="middle" font-size="8" x="105" y="130" writing-mode="vertical-rl">玉泉南路</text><text text-anchor="middle" font-size="8" x="155" y="180" writing-mode="vertical-rl">郭沫若路</text><text text-anchor="middle" font-size="8" x="155" y="230" writing-mode="vertical-rl">天使路</text><text text-anchor="middle" font-size="8" x="155" y="280" writing-mode="vertical-rl">金寨路</text><text text-anchor="middle" font-size="8" x="205" y="80" writing-mode="vertical-rl">天使路</text><text text-anchor="middle" font-size="8" x="205" y="180" writing-mode="vertical-rl">济慧路</text><text text-anchor="middle" font-size="8" x="230" y="208">红专路</text><text text-anchor="middle" font-size="8" x="255" y="280" writing-mode="vertical-rl">寰宇西路</text></g><path stroke="hsl(355, 23%, 62%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 5 20 L 5 40 A 15 15 0 0 0 20 55 L 40 55 L 70 55 L 90 55 A 15 15 0 0 1 105 70 L 105 90 L 105 120 L 105 140 L 105 170 L 105 190 L 105 220 L 105 240 A 15 15 0 0 1 90 255 L 70 255 L 40 255 L 20 255 A 15 15 0 0 0 5 270 L 5 290 A 15 15 0 0 0 20 305 L 40 305 L 70 305 L 90 305 L 120 305 L 140 305 A 15 15 0 0 0 155 290 L 155 270 L 155 240 L 155 220 L 155 190 L 155 170 L 155 140 L 155 120 A 15 15 0 0 1 170 105 L 190 105 A 15 15 0 0 0 205 90 L 205 70 A 15 15 0 0 0 190 55 L 170 55 A 15 15 0 0 1 155 40 L 155 20 A 15 15 0 0 1 170 5 L 190 5 L 220 5 L 240 5 L 270 5 L 290 5 A 15 15 0 0 1 305 20 L 305 40 A 15 15 0 0 1 290 55 L 270 55 A 15 15 0 0 0 255 70 L 255 90 L 255 120 L 255 140 A 15 15 0 0 1 240 155 L 220 155 A 15 15 0 0 0 205 170 L 205 190 A 15 15 0 0 0 220 205 L 240 205 A 15 15 0 0 1 255 220 L 255 240 L 255 270 L 255 290 A 15 15 0 0 0 270 305 L 290 305 L 320 305 L 340 305"></path><path stroke="hsl(355, 23%, 62%)" stroke-width="8" stroke-linecap="round" fill="none"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(355, 23%, 93%)" stroke="hsl(355, 23%, 62%)" stroke-width="10"></circle></svg>
+    <p>现在你已经知晓了这个游戏的所有规则，去追求4.3的GPA吧！</p>
+</div>
+<div class="slide">
+    <p>移动端操作：滑动创建路径，按照提示实现路径操作<br>桌面端操作：WASD键或方向键创建路径，R键清空路径，Enter提交路径，Tab更换题目，Control查看答案，Shift隐藏答案</p>
+</div>
+<div class="slide">
+    <svg width="25vh" height="20vh" viewBox="-30 -30 250 200" class="example"><path d="M 0 0 
+         L 140 0 
+         A 20 20 0 0 1 160 20 
+         L 160 140 
+         A 10 10 0 0 0 170 150
+         L 190 150 
+         A 5 5 0 0 1 190 160
+         L 20 160 
+         A 20 20 0 0 1 0 140 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="10" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="green"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="60" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect></g><g><text x="30" y="141" text-anchor="middle" font-size="30" fill="white">计</text><text x="80" y="91" text-anchor="middle" font-size="30" fill="red">专</text><text x="80" y="141" text-anchor="middle" font-size="30" fill="blue">实</text><text x="130" y="91" text-anchor="middle" font-size="30" fill="blue">理</text><text x="130" y="141" text-anchor="middle" font-size="30" fill="red">红</text></g><g><text text-anchor="middle" font-size="8" x="5" y="30" writing-mode="vertical-rl">玉泉南路</text><text text-anchor="middle" font-size="8" x="55" y="130" writing-mode="vertical-rl">寰宇东路</text></g><path stroke="hsl(204, 22%, 48%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(204, 22%, 48%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 5 20 L 5 40 A 15 15 0 0 0 20 55 L 40 55 A 15 15 0 0 1 55 70 L 55 90 L 55 120 L 55 140 A 15 15 0 0 0 70 155 L 90 155 A 15 15 0 0 0 105 140 L 105 120 L 105 90 L 105 70 L 105 40 L 105 20 A 15 15 0 0 1 120 5 L 140 5 A 15 15 0 0 1 155 20 L 155 40 L 155 70 L 155 90 L 155 120 L 155 140 A 15 15 0 0 0 170 155 L 190 155"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(204, 22%, 87%)" stroke="hsl(204, 22%, 48%)" stroke-width="10"></circle></svg>
+    <p>按照规则，这个路径是不对的</p>
+</div>
+<div class="slide">
+    <svg width="25vh" height="20vh" viewBox="-30 -30 250 200" class="example"><path d="M 0 0 
+         L 140 0 
+         A 20 20 0 0 1 160 20 
+         L 160 140 
+         A 10 10 0 0 0 170 150
+         L 190 150 
+         A 5 5 0 0 1 190 160
+         L 20 160 
+         A 20 20 0 0 1 0 140 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="10" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="10" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect><rect x="60" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="110" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect></g><g><text x="30" y="41" text-anchor="middle" font-size="30" fill="white">数</text><text x="30" y="91" text-anchor="middle" font-size="30" fill="white">管</text><text x="30" y="141" text-anchor="middle" font-size="30" fill="red">红</text><text x="80" y="41" text-anchor="middle" font-size="30" fill="white">少</text><text x="80" y="91" text-anchor="middle" font-size="30" fill="red">专</text><text x="80" y="141" text-anchor="middle" font-size="30" fill="blue">实</text><text x="130" y="41" text-anchor="middle" font-size="30" fill="blue">理</text><text x="130" y="141" text-anchor="middle" font-size="30" fill="white">化</text></g><g><text text-anchor="middle" font-size="8" x="30" y="108">孺子牛路</text></g><path stroke="hsl(294, 20%, 42%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(294, 20%, 42%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 5 20 L 5 40 L 5 70 L 5 90 A 15 15 0 0 0 20 105 L 40 105 A 15 15 0 0 0 55 90 L 55 70 L 55 40 L 55 20 A 15 15 0 0 1 70 5 L 90 5 L 120 5 L 140 5 A 15 15 0 0 1 155 20 L 155 40 A 15 15 0 0 1 140 55 L 120 55 A 15 15 0 0 0 105 70 L 105 90 L 105 120 L 105 140 A 15 15 0 0 0 120 155 L 140 155 L 170 155 L 190 155"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(294, 20%, 77%)" stroke="hsl(294, 20%, 42%)" stroke-width="10"></circle></svg>
+    <p>具体的来说，一个区域当中只要有红就有专，只要有理就有实</p>
+</div>
+<div class="slide">
+    <svg width="25vh" height="20vh" viewBox="-30 -30 250 200" class="example"><path d="M 0 0 
+         L 140 0 
+         A 20 20 0 0 1 160 20 
+         L 160 140 
+         A 10 10 0 0 0 170 150
+         L 190 150 
+         A 5 5 0 0 1 190 160
+         L 20 160 
+         A 20 20 0 0 1 0 140 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="60" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="green"></rect><rect x="110" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="110" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect></g><g><text x="30" y="41" text-anchor="middle" font-size="30" fill="red">红</text><text x="30" y="91" text-anchor="middle" font-size="30" fill="blue">理</text><text x="80" y="91" text-anchor="middle" font-size="30" fill="blue">实</text><text x="80" y="141" text-anchor="middle" font-size="30" fill="white">计</text><text x="130" y="91" text-anchor="middle" font-size="30" fill="white">管</text><text x="130" y="141" text-anchor="middle" font-size="30" fill="red">专</text></g><g><text text-anchor="middle" font-size="8" x="105" y="130" writing-mode="vertical-rl">玉泉北路</text></g><path stroke="hsl(300, 21%, 59%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(300, 21%, 59%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 5 20 L 5 40 A 15 15 0 0 0 20 55 L 40 55 L 70 55 L 90 55 A 15 15 0 0 1 105 70 L 105 90 L 105 120 L 105 140 A 15 15 0 0 0 120 155 L 140 155 L 170 155 L 190 155"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(300, 21%, 91%)" stroke="hsl(300, 21%, 59%)" stroke-width="10"></circle></svg>
+    <p>你规划的路径必须满足#红专并进,理实交融#的校训</p>
+</div>
+<div class="slide">
+    <svg width="25vh" height="20vh" viewBox="-30 -30 250 200" class="example"><path d="M 0 0 
+         L 140 0 
+         A 20 20 0 0 1 160 20 
+         L 160 140 
+         A 10 10 0 0 0 170 150
+         L 190 150 
+         A 5 5 0 0 1 190 160
+         L 20 160 
+         A 20 20 0 0 1 0 140 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="10" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="10" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="60" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="60" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect><rect x="110" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="110" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="110" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect></g><g><text x="30" y="41" text-anchor="middle" font-size="30" fill="white">化</text><text x="30" y="141" text-anchor="middle" font-size="30" fill="white">少</text><text x="80" y="41" text-anchor="middle" font-size="30" fill="white">环</text><text x="80" y="91" text-anchor="middle" font-size="30" fill="white">数</text><text x="80" y="141" text-anchor="middle" font-size="30" fill="white">少</text><text x="130" y="41" text-anchor="middle" font-size="30" fill="white">物</text><text x="130" y="141" text-anchor="middle" font-size="30" fill="white">工</text></g><g></g><path stroke="hsl(57, 21%, 37%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(57, 21%, 37%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 20 5 L 40 5 L 70 5 L 90 5 L 120 5 L 140 5 A 15 15 0 0 1 155 20 L 155 40 A 15 15 0 0 1 140 55 L 120 55 L 90 55 L 70 55 L 40 55 L 20 55 A 15 15 0 0 0 5 70 L 5 90 A 15 15 0 0 0 20 105 L 40 105 L 70 105 L 90 105 A 15 15 0 0 1 105 120 L 105 140 A 15 15 0 0 0 120 155 L 140 155 L 170 155 L 190 155"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(57, 21%, 76%)" stroke="hsl(57, 21%, 37%)" stroke-width="10"></circle></svg>
+    <p>看一个较复杂的例子，不同的区域内只能有一种颜色的书院</p>
+</div>
+<div class="slide">
+    <svg width="20vh" height="10vh" viewBox="-30 -30 200 100" class="example"><path d="M 0 0 
+         L 90 0 
+         A 20 20 0 0 1 110 20 
+         L 110 40 
+         A 10 10 0 0 0 120 50
+         L 140 50 
+         A 5 5 0 0 1 140 60
+         L 20 60 
+         A 20 20 0 0 1 0 40 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect></g><g><text x="30" y="41" text-anchor="middle" font-size="30" fill="white">管</text><text x="80" y="41" text-anchor="middle" font-size="30" fill="white">工</text></g><g><text text-anchor="middle" font-size="8" x="5" y="30" writing-mode="vertical-rl">天使路</text></g><path stroke="hsl(320, 21%, 50%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(320, 21%, 50%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 5 20 L 5 40 A 15 15 0 0 0 20 55 L 40 55 L 70 55 L 90 55 L 120 55 L 140 55"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(320, 21%, 89%)" stroke="hsl(320, 21%, 50%)" stroke-width="10"></circle></svg>
+    <p>同属一种颜色书院的学院可以在一个区域内（如管院和工院）</p>
+</div>
+<div class="slide">
+    <svg width="20vh" height="10vh" viewBox="-30 -30 200 100" class="example"><path d="M 0 0 
+         L 90 0 
+         A 20 20 0 0 1 110 20 
+         L 110 40 
+         A 10 10 0 0 0 120 50
+         L 140 50 
+         A 5 5 0 0 1 140 60
+         L 20 60 
+         A 20 20 0 0 1 0 40 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="green"></rect></g><g><text x="30" y="41" text-anchor="middle" font-size="30" fill="white">物</text><text x="80" y="41" text-anchor="middle" font-size="30" fill="white">微</text></g><g><text text-anchor="middle" font-size="8" x="30" y="8">黄山路</text></g><path stroke="hsl(10, 28%, 44%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(10, 28%, 44%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 20 5 L 40 5 A 15 15 0 0 1 55 20 L 55 40 A 15 15 0 0 0 70 55 L 90 55 L 120 55 L 140 55"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(10, 28%, 75%)" stroke="hsl(10, 28%, 44%)" stroke-width="10"></circle></svg>
+    <p>在你的路径与周围边框划分出的区域中，只能有一种颜色的书院</p>
+</div>
+<div class="slide">
+    <svg width="20vh" height="10vh" viewBox="-30 -30 200 100" class="example"><path d="M 0 0 
+         L 90 0 
+         A 20 20 0 0 1 110 20 
+         L 110 40 
+         A 10 10 0 0 0 120 50
+         L 140 50 
+         A 5 5 0 0 1 140 60
+         L 20 60 
+         A 20 20 0 0 1 0 40 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect></g><g><text x="30" y="41" text-anchor="middle" font-size="30" fill="white">少</text><text x="80" y="41" text-anchor="middle" font-size="30" fill="white">少</text></g><g><text text-anchor="middle" font-size="8" x="80" y="8">孺子牛路</text></g><path stroke="hsl(19, 26%, 49%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(19, 26%, 49%)" stroke-width="8" stroke-linecap="round" fill="none"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(19, 26%, 86%)" stroke="hsl(19, 26%, 49%)" stroke-width="10"></circle></svg>
+    <p>规划的路径必须要穿过黑色标出的路名（如孺子牛路）</p>
+</div>
+<div class="slide">
+    <svg width="15vh" height="10vh" viewBox="-30 -30 150 100" class="example"><path d="M 0 0 
+         L 40 0 
+         A 20 20 0 0 1 60 20 
+         L 60 40 
+         A 10 10 0 0 0 70 50
+         L 90 50 
+         A 5 5 0 0 1 90 60
+         L 20 60 
+         A 20 20 0 0 1 0 40 
+         L 0 0  
+         Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="green"></rect></g><g><text x="30" y="41" text-anchor="middle" font-size="30" fill="white">生</text></g><g></g><path stroke="hsl(182, 26%, 53%)" stroke-width="8" stroke-linecap="round" fill="none" d=""></path><path stroke="hsl(182, 26%, 53%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 20 5 L 40 5 A 15 15 0 0 1 55 20 L 55 40 A 15 15 0 0 0 70 55 L 90 55"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(182, 26%, 83%)" stroke="hsl(182, 26%, 53%)" stroke-width="10"></circle></svg>
+    <p>从左上角的圆点开始，到右下角结束</p>
+</div>
+<div class="slide">
+    <svg width="24vh" height="20vh" viewBox="-30 -30 300 250" class="example"><path d="M 0 0 
+        L 190 0 
+        A 20 20 0 0 1 210 20 
+        L 210 190 
+        A 10 10 0 0 0 220 200
+        L 240 200 
+        A 5 5 0 0 1 240 210
+        L 20 210 
+        A 20 20 0 0 1 0 190 
+        L 0 0  
+        Z" fill="white" stroke="black" stroke-width="2"></path><g><rect x="10" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="10" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="10" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="60" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="60" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="60" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="#F0F0F0"></rect><rect x="60" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="110" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect><rect x="110" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="green"></rect><rect x="160" y="10" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="purple"></rect><rect x="160" y="60" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="orange"></rect><rect x="160" y="110" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="blue"></rect><rect x="160" y="160" width="40" height="40" rx="10" ry="10" stroke="black" stroke-width="2" fill="white"></rect></g><g><text x="30" y="141" text-anchor="middle" font-size="30" fill="red">红</text><text x="80" y="91" text-anchor="middle" font-size="30" fill="blue">理</text><text x="80" y="191" text-anchor="middle" font-size="30" fill="blue">实</text><text x="130" y="41" text-anchor="middle" font-size="30" fill="white">化</text><text x="130" y="91" text-anchor="middle" font-size="30" fill="blue">实</text><text x="130" y="141" text-anchor="middle" font-size="30" fill="red">专</text><text x="130" y="191" text-anchor="middle" font-size="30" fill="white">微</text><text x="180" y="41" text-anchor="middle" font-size="30" fill="white">地</text><text x="180" y="91" text-anchor="middle" font-size="30" fill="white">少</text><text x="180" y="141" text-anchor="middle" font-size="30" fill="white">管</text><text x="180" y="191" text-anchor="middle" font-size="30" fill="blue">理</text></g><g><text text-anchor="middle" font-size="8" x="5" y="80" writing-mode="vertical-rl">济慧路</text><text text-anchor="middle" font-size="8" x="105" y="30" writing-mode="vertical-rl">玉泉北路</text><text text-anchor="middle" font-size="8" x="130" y="108">孺子牛路</text><text text-anchor="middle" font-size="8" x="130" y="158">孺子牛路</text></g><path stroke="hsl(269, 26%, 50%)" stroke-width="8" stroke-linecap="round" fill="none" d="M 5 5 L 20 5 L 40 5 L 70 5 L 90 5 A 15 15 0 0 1 105 20 L 105 40 A 15 15 0 0 0 120 55 L 140 55 L 170 55 L 190 55 A 15 15 0 0 1 205 70 L 205 90 A 15 15 0 0 1 190 105 L 170 105 L 140 105 L 120 105 L 90 105 L 70 105 A 15 15 0 0 1 55 90 L 55 70 A 15 15 0 0 0 40 55 L 20 55 A 15 15 0 0 0 5 70 L 5 90 L 5 120 L 5 140 A 15 15 0 0 0 20 155 L 40 155 L 70 155 L 90 155 L 120 155 L 140 155 L 170 155 L 190 155 A 15 15 0 0 1 205 170 L 205 190 A 15 15 0 0 0 220 205 L 240 205"></path><path stroke="hsl(269, 26%, 50%)" stroke-width="8" stroke-linecap="round" fill="none"></path><circle class="dot" cx="5" cy="5" r="10" fill="hsl(269, 26%, 80%)" stroke="hsl(269, 26%, 50%)" stroke-width="10"></circle></svg>
+    <p>作为一名USTCer，你想在科大校园内规划一条符合数理逻辑的路径</p>
+</div>
