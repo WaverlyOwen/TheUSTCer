@@ -4,7 +4,7 @@ import { createLevel } from './level.js';
 import { Board } from './board.js';
 import { mobile } from './mobile.js';
 import * as Draw from './draw.js';
-import * as Rule from './rule.js';
+import * as Rule from './menu.js';
 
 function createBoard(board, level) {
     if (board !== undefined) {

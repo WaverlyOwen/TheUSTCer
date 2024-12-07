@@ -57,6 +57,16 @@ body, html {
     transition: opacity 0.5s ease-in-out;
 }
 
+#rule::before {
+    content: "使用方向键或WASD操控生成路径 \A 退格键删除路径，R键清空路径 \A 从左上角的起始点出发，到右下角结束 \A 路径需要穿过所有科大校园道路名称 \A 路径与四周边界围成的区域中只能包含一种颜色的学院方块 \A 且一个区域内只能有一个完整的“理实”和“红专” \A Enter键提交你的答案，如果正确GPA增加，更换题目 \A Tab键更换题目，Control键显示答案，Shift键隐藏答案\A";
+    white-space: pre-wrap;
+}
+
+#mobileRule::before {
+    content: "在页面上滑动生成路径 \A 反向滑动删除路径 \A 从左上角的起始点出发，到右下角结束 \A 路径需要穿过所有科大校园道路名称 \A 路径与四周边界围成的区域中只能包含一种颜色的学院方块 \A 且一个区域内只能有一个完整的“理实”和“红专” \A 提交你的答案，如果正确GPA增加，更换题目";
+    white-space: pre-wrap;
+}
+
 .board {
     position: absolute;
     top: 30vh;

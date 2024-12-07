@@ -45,3 +45,12 @@ export function getThemeColors() {
 
     return { lightColor, darkColor };
 }
+
+export function simulateKey(key) {
+    const event = new KeyboardEvent('keydown', {
+      key: key,
+      bubbles: true,
+      cancelable: true
+    });
+    document.dispatchEvent(event);
+}
