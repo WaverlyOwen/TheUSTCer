@@ -147,7 +147,7 @@ export function createMenu() {
     slider.classList.add('slider');
     document.body.appendChild(slider);
 
-    fetch('../../menu.html')
+    fetch('./static/html/menu.html')
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok ' + response.statusText);

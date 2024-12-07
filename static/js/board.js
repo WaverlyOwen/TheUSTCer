@@ -265,7 +265,7 @@ export class Path {
 }
 
 export class Board {
-    constructor(name, level, swipeDetector) {
+    constructor(name, level) {
         this.name = name;
         this.size = level.size();
         this.themeColor = Common.getThemeColors();
