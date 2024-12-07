@@ -1,6 +1,6 @@
 "use strict";
 import * as Common from './common.js';
-import { isMobileDevice } from './mobile.js';
+import * as Device from './device.js';
 
 export function path(board, position, distance) {
     const now = board.queue[distance - 1];
@@ -39,11 +39,11 @@ export function border(board) {
     board.svg.appendChild(board.border);
 }
 
-export function start(board) {
+export function dot(board, swipeDetector) {
 
-    board.start = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    board.start.classList.add("start");
-    Common.setAttribute(board.start, [
+    board.dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    board.dot.classList.add("dot");
+    Common.setAttribute(board.dot, [
         ["cx", "5"], 
         ["cy", "5"],
         ["r", "10"], 
@@ -51,28 +51,9 @@ export function start(board) {
         ["stroke", board.themeColor.darkColor],
         ["stroke-width", "10"]
     ]);
-    board.svg.appendChild(board.start);
+    board.svg.appendChild(board.dot);
 
-    if (isMobileDevice()) {
-        board.showRule = false;
-        board.start.addEventListener('touchstart', () => {
-            if (board.showRule) {
-                board.showRule = false;
-                document.getElementById('mobileRule').style.opacity = 0;
-            } else {
-                document.getElementById('mobileRule').style.opacity = 1;
-                board.showRule = true;
-            }
-        });
-    } else {
-        board.start.addEventListener('mouseenter', () => {
-            document.getElementById('rule').style.opacity = 1;
-        });
-
-        board.start.addEventListener('mouseleave', () => {
-            document.getElementById('rule').style.opacity = 0;
-        });
-    }
+    Device.menu(board.dot, swipeDetector);
 }
 
 export function road(board, position, type) {

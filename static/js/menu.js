@@ -1,8 +1,6 @@
 "use strict";
 
-export function onWndLoad() {
-   
-    let slider = document.querySelector('.slider');
+function control(slider) {
     let sliders = slider.children;
    
     let initX = null;
@@ -99,45 +97,34 @@ export function onWndLoad() {
           
          
           initX =mouseX;
-          e.preventDefault();
           if (Math.abs(transX) >= curSlide.offsetWidth-30) {
-           
-              document.removeEventListener('mousemove', slideMouseMove, false);
-              document.removeEventListener('touchmove', slideMouseMove, false);
-              curSlide.style.transition = 'ease 0.2s';
-              curSlide.style.opacity = 0;
-              prevSlide = curSlide;
-              attachEvents(sliders[sliders.length - 2]);
-              slideMouseUp();
-              setTimeout(function () {
+            document.removeEventListener('mousemove', slideMouseMove, false);
+            document.removeEventListener('touchmove', slideMouseMove, false);
+            curSlide.style.transition = 'ease 0.2s';
+            curSlide.style.opacity = 0;
+            prevSlide = curSlide;
+            attachEvents(sliders[sliders.length - 2]);
+            slideMouseUp();
+            setTimeout(function () {
                  
-               
-                 
-               
-                  
-                  slider.insertBefore(prevSlide, slider.firstChild);
-                  
-                  prevSlide.style.transition = 'none';
-                  prevSlide.style.opacity = '1';
-                  slideMouseUp();
+                slider.insertBefore(prevSlide, slider.firstChild);
+                prevSlide.style.transition = 'none';
+                prevSlide.style.opacity = '1';
+                slideMouseUp();
                 
-              },201);
-            
-             
-              
-              return;
-          }
+            },201);
+            return;
+        }
     }
     function slideMouseUp() {
         transX = 0;
         rotZ = 0;
         transY = 0;
-      
+        
         curSlide.style.transition = 'cubic-bezier(0,1.95,.49,.73) '+TRANS_DUR+'s';
 
         curSlide.style.webkitTransform = 'translateX(' + transX + 'px)' + 'rotateZ(' + rotZ + 'deg)' + ' translateY(' + transY + 'px)';
-       curSlide.style.transform = 'translateX(' + transX + 'px)' + 'rotateZ(' + rotZ + 'deg)' + ' translateY(' + transY + 'px)';
-        //remains elements
+        curSlide.style.transform = 'translateX(' + transX + 'px)' + 'rotateZ(' + rotZ + 'deg)' + ' translateY(' + transY + 'px)';
         let j = 1;
         for (let i = sliders.length -  2; i >= 0; i--) {
                sliders[i].style.transition = 'cubic-bezier(0,1.95,.49,.73) ' + TRANS_DUR / (j + 0.9) + 's';
@@ -146,13 +133,32 @@ export function onWndLoad() {
 
         j++;
         }
-         
         document.removeEventListener('mousemove', slideMouseMove, false);
         document.removeEventListener('touchmove', slideMouseMove, false);
      
+        
+        document.removeEventListener('mouseup', slideMouseUp, false);
+        document.removeEventListener('touchend', slideMouseUp, false);
     }
 }
 
-export function remove() {
-    
+export function createMenu() {
+    let slider = document.createElement('div');
+    slider.classList.add('slider');
+    document.body.appendChild(slider);
+
+    fetch('../../menu.html')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
+            return response.text();
+        })
+        .then(htmlContent => {
+            slider.innerHTML = htmlContent;
+            control(slider);
+        })
+        .catch(error => {
+            console.error('There has been a problem with your fetch operation:', error);
+        });
 }

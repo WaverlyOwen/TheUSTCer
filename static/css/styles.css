@@ -106,11 +106,11 @@ text {
     }
 }
 
-.start:hover {
+.dot:hover {
     animation: grow 0.5s forwards;
 }
 
-.start:not(:hover) {
+.dot:not(:hover) {
     animation: shrink 0.5s forwards;
 }
 

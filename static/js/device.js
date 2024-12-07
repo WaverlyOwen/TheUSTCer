@@ -1,30 +1,29 @@
 "use strict";
 
 import * as Common from './common.js';
+import * as Menu from './menu.js';
 
 export const isMobileDevice = () => {
     return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 };
 
 const createSwipeDetector = (threshold = 30) => {
-    let startX = 0;
-    let startY = 0;
+    let x = 0;
+    let y = 0;
 
     return {
-        handleTouchStart(event) {
+        handleTouchStart: (event) => {
             const touch = event.touches[0];
-            startX = touch.clientX;
-            startY = touch.clientY;
+            x = touch.clientX;
+            y = touch.clientY;
         },
-        handleTouchMove(event) {
+        handleTouchMove: (event) => {
             event.preventDefault();
-            if (!startX || !startY) {
-                return;
-            }
+            if (!x || !y) return;
 
             const touch = event.touches[0];
-            const diffX = touch.clientX - startX;
-            const diffY = touch.clientY - startY;
+            const diffX = touch.clientX - x;
+            const diffY = touch.clientY - y;
 
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > threshold) {
                 if (diffX > 0) {
@@ -32,21 +31,31 @@ const createSwipeDetector = (threshold = 30) => {
                 } else {
                     Common.simulateKey("a");
                 }
-                startX = touch.clientX;
-                startY = touch.clientY;
+                x = touch.clientX;
+                y = touch.clientY;
             } else if (Math.abs(diffY) > threshold) {
                 if (diffY > 0) {
                     Common.simulateKey("s");
                 } else {
                     Common.simulateKey("w");
                 }
-                startX = touch.clientX;
-                startY = touch.clientY;
+                x = touch.clientX;
+                y = touch.clientY;
             }
         },
-        handleTouchEnd(event) {
-            startX = 0;
-            startY = 0;
+        handleTouchEnd: () => {
+            x = 0;
+            y = 0;
+        },
+        addEventListener() {
+            document.addEventListener("touchstart", this.handleTouchStart);
+            document.addEventListener("touchmove", this.handleTouchMove, { passive: false });
+            document.addEventListener("touchend", this.handleTouchEnd);
+        },
+        removeEventListener() {
+            document.removeEventListener("touchstart", this.handleTouchStart);
+            document.removeEventListener("touchmove", this.handleTouchMove, { passive: false });
+            document.removeEventListener("touchend", this.handleTouchEnd);
         }
     };
 };
@@ -79,7 +88,34 @@ export function mobile() {
     document.body.appendChild(buttons);
 
     const swipeDetector = createSwipeDetector(30);
-    document.addEventListener("touchstart", swipeDetector.handleTouchStart);
-    document.addEventListener("touchmove", swipeDetector.handleTouchMove, { passive: false});
-    document.addEventListener("touchend", swipeDetector.handleTouchEnd);
+    swipeDetector.addEventListener();
+
+    return swipeDetector;
+}
+
+export function menu(dot, swipeDetector) {
+    if (dot.show === undefined) {
+        dot.show = 0;
+    }
+
+    if (isMobileDevice()) {
+        dot.addEventListener('touchstart', () => {
+            if (dot.show) {
+                swipeDetector.addEventListener();
+                Common.remove('.slider');
+            } else {
+                swipeDetector.removeEventListener();
+                Menu.createMenu();
+            }
+            dot.show = !dot.show;
+        });
+    } else {
+        dot.addEventListener('mouseenter', () => {
+            document.getElementById('rule').style.opacity = 1;
+        });
+
+        dot.addEventListener('mouseleave', () => {
+            document.getElementById('rule').style.opacity = 0;
+        });
+    }
 }
