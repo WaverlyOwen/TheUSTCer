@@ -7,7 +7,7 @@ export const isMobileDevice = () => {
     return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 };
 
-const createSwipeDetector = (threshold = 30) => {
+const createSwipeDetector = (threshold = 40) => {
     let x = 0;
     let y = 0;
 
@@ -87,7 +87,7 @@ export function mobile() {
 
     document.body.appendChild(buttons);
 
-    const swipeDetector = createSwipeDetector(30);
+    const swipeDetector = createSwipeDetector();
     swipeDetector.addEventListener();
 
     return swipeDetector;
@@ -95,18 +95,22 @@ export function mobile() {
 
 export function menu(dot, swipeDetector) {
     if (dot.show === undefined) {
-        dot.show = 0;
+        dot.show = false;
     }
-
-    function handleDot() {
-        if (dot.show) {
+    function handleOut(event) {
+        let slider = document.querySelector('.slider');
+        const rect = slider.getBoundingClientRect();
+  
+        const x = event.clientX;
+        const y = event.clientY;
+  
+        if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
             if(swipeDetector){
                 swipeDetector.addEventListener();
             }
 
             const overlay = document.getElementById('dark-overlay');
             
-            let slider = document.querySelector('.slider');
             slider.classList.remove('fade-in');
             slider.classList.add('fade-out');
 
@@ -121,11 +125,18 @@ export function menu(dot, swipeDetector) {
                 }, 500);
             }
 
+            dot.show = false;
+            document.removeEventListener(isMobileDevice() ? 'touchstart' : 'mousedown', handleOut);
+        }
+    }
+
+    function handleDot() {
+        if (dot.show) {
+            handleOut({clientX: 0, clientY: 0});
         } else {
             if(swipeDetector){
                 swipeDetector.removeEventListener();
             }
-
             let overlay = document.getElementById('dark-overlay');
             if (!overlay) {
                 overlay = document.createElement('div');
@@ -137,10 +148,10 @@ export function menu(dot, swipeDetector) {
                 overlay.classList.add('active');
             });
 
-            Menu.createMenu();
+            Menu.createMenu(handleOut);
+            dot.show = true;
         }
-        dot.show = !dot.show;
     }
 
-    dot.addEventListener(isMobileDevice() ? 'touchstart' : 'mousedown', handleDot);
+    dot.addEventListener(isMobileDevice() ? 'touchstart' : 'mousedown', handleDot, { passive: false });
 }

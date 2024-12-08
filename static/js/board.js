@@ -4,7 +4,7 @@ import * as Common from './common.js';
 import * as Draw from './draw.js';
 
 export class Path {
-    constructor(name, board, themeColor) {
+    constructor(name, board, color) {
         this.name = name;
         this.size = board.size;
         this.board = board;
@@ -19,14 +19,60 @@ export class Path {
 
         this.line = document.createElementNS("http://www.w3.org/2000/svg", "path");
         
-        this.themeColor = themeColor;
+        this.color = color;
         Common.setAttribute(this.line, [
-            ["stroke", this.themeColor.darkColor], 
+            ["stroke", this.color], 
             ["stroke-width", "8"], 
             ["stroke-linecap", "round"], 
             ["fill", "none"]
         ]);
         this.board.svg.appendChild(this.line);
+        this.handleKey = (event) => {
+            switch (event.key) {
+                case 'd' : case 'D' : case 'ArrowRight' : 
+                    if (this.step(0)) {
+                        Draw.path(this, [this.x, this.y], this.distance);
+                        this.updateLine();
+                    } else if (2 === this.queue[this.distance - 1]) {
+                        this.back();
+                    }
+                    break;
+                case 's' : case 'S' : case 'ArrowDown' : 
+                    if (this.step(1)) {
+                        Draw.path(this, [this.x, this.y], this.distance);
+                        this.updateLine();
+                    } else if (3 === this.queue[this.distance - 1]) {
+                        this.back();
+                    }
+                    break;
+                case 'a' : case 'A' : case 'ArrowLeft' : 
+                    if (this.step(2)) {
+                        Draw.path(this, [this.x, this.y], this.distance);
+                        this.updateLine();
+                    } else if (0 === this.queue[this.distance - 1]) {
+                        this.back();
+                    }
+                    break;
+                case 'w' : case 'W' : case 'ArrowUp' : 
+                    if (this.step(3)) {
+                        Draw.path(this, [this.x, this.y], this.distance);
+                        this.updateLine();
+                    } else if (1 === this.queue[this.distance - 1]) {
+                        this.back();
+                    }
+                    break;
+                case 'Backspace' :
+                    this.back();
+                    break;
+                case 'r' : case 'R' : 
+                    while (this.distance) {
+                        this.back();
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     move(position, now, length) {
@@ -102,7 +148,7 @@ export class Path {
 
     generate() {
         let last = Math.floor(Math.random() * 2);
-        const turnRate = 0.7;
+        const turnRate = 0.8;
         while (this.x !== this.size[0] || this.y !== this.size[1]) {
 
             const random = Math.random();
@@ -149,53 +195,6 @@ export class Path {
         this.d.pop();
         this.d.pop();
         this.updateLine();
-    }
-
-    handleKey(event) {
-        switch (event.key) {
-            case 'd' : case 'D' : case 'ArrowRight' : 
-                if (this.step(0)) {
-                    Draw.path(this, [this.x, this.y], this.distance);
-                    this.updateLine();
-                } else if (2 === this.queue[this.distance - 1]) {
-                    this.back();
-                }
-                break;
-            case 's' : case 'S' : case 'ArrowDown' : 
-                if (this.step(1)) {
-                    Draw.path(this, [this.x, this.y], this.distance);
-                    this.updateLine();
-                } else if (3 === this.queue[this.distance - 1]) {
-                    this.back();
-                }
-                break;
-            case 'a' : case 'A' : case 'ArrowLeft' : 
-                if (this.step(2)) {
-                    Draw.path(this, [this.x, this.y], this.distance);
-                    this.updateLine();
-                } else if (0 === this.queue[this.distance - 1]) {
-                    this.back();
-                }
-                break;
-            case 'w' : case 'W' : case 'ArrowUp' : 
-                if (this.step(3)) {
-                    Draw.path(this, [this.x, this.y], this.distance);
-                    this.updateLine();
-                } else if (1 === this.queue[this.distance - 1]) {
-                    this.back();
-                }
-                break;
-            case 'Backspace' :
-                this.back();
-                break;
-            case 'r' : case 'R' : 
-                while (this.distance) {
-                    this.back();
-                }
-                break;
-            default:
-                break;
-        }
     }
 
     updateLine() {
@@ -270,6 +269,7 @@ export class Board {
         this.size = level.size();
         this.themeColor = Common.getThemeColors();
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.level = level;
         Common.setAttribute(this.svg, [
             ["id", name], 
             ["width", `${(level.size()[0] + 2) * 5}vh`],
@@ -285,12 +285,31 @@ export class Board {
         this.svg.appendChild(this.textG);
         this.svg.appendChild(this.roadG);
         document.body.insertBefore(this.svg, document.getElementById("title"));
+
+        this.handleKey = (event) => {
+            switch (event.key) {
+                case 'Control' :
+                    event.preventDefault();
+                    this.answer.updateLine();
+                    this.level.decrement();
+                    break;
+                case 'Shift' :
+                    event.preventDefault();
+                    this.answer.hide();
+                    break;
+                default :
+                    break;
+            }
+        };
     }
 
     validAnswer() {
+        if (this.answer.group.length < Math.sqrt(this.size[0] * this.size[1]) && Math.sqrt(this.size[0] * this.size[1]) > 3) {
+            return false;
+        }
         for (let i = 0; i < this.answer.group.length; i++) {
             const member = this.answer.group[i];
-            if (member < Math.sqrt(this.size[0] * this.size[1]) / 2|| member > this.size[0] * this.size[1] / 3 && this.size[0] * this.size[1] > 9) {
+            if ((member === 1 || member > this.size[0] * this.size[1] / 2) && this.size[0] * this.size[1] > 9) {
                 return false;
             }
         }
@@ -299,11 +318,11 @@ export class Board {
 
     question() {
         if (!this.answer) {
-            this.answer = new Path("answer", this, this.themeColor);
+            this.answer = new Path("answer", this, this.themeColor.lightColor);
             this.answer.generate();
             while (!this.validAnswer()) {
                 this.answer.destroy();
-                this.answer = new Path("answer", this, this.themeColor);
+                this.answer = new Path("answer", this, this.themeColor.lightColor);
                 this.answer.generate();
             }
         }
@@ -312,7 +331,7 @@ export class Board {
         const types = Common.shuffleArray([7, 8, 9, 10]);
         const typeScale = [2, 2, 2, 4, 4, 11, 11, 1, 3, 5, 5, 2, 2, 5];
         const roadRate = 0.2;
-        const signRate = 0.5;
+        const signRate = 0.7;
 
         this.sign = Array.from({ length: (this.size[0] + 1) }, () => Array.from({ length: (this.size[1] + 1) }, () => [[0, 0], [0, 0], [0, 0]]));
 
@@ -352,7 +371,7 @@ export class Board {
                 this.answer.group[group]--;
                 if (type = groupType[group][1].find(cell => cell[0] === this.answer.group[group])) {
                     this.sign[i][j][2] = [type[1], type[2]];
-                } else if (Math.random() < signRate / Math.sqrt(this.answer.group[this.answer.groupMap[i][j]])) {
+                } else if (Math.random() < signRate / Math.sqrt(Math.sqrt(this.answer.group[this.answer.groupMap[i][j]]))) {
                     this.sign[i][j][2] = [groupType[group][0], Common.random(typeScale[groupType[group][0]])];
                 } else if ((i + j) % 2) {
                     this.sign[i][j][2] = [0, 1];
@@ -395,25 +414,10 @@ export class Board {
         }
     }
 
-    handleKey(event) {
-        switch (event.key) {
-            case 'Control' :
-                event.preventDefault();
-                this.answer.updateLine();
-                break;
-            case 'Shift' :
-                event.preventDefault();
-                this.answer.hide();
-                break;
-            default :
-                break;
-        }
-    }
-
     user() {
-        this.userPath = new Path("user", this, this.themeColor);
-        document.addEventListener("keydown", this.handleKey.bind(this));
-        document.addEventListener("keydown", this.userPath.handleKey.bind(this.userPath));
+        this.userPath = new Path("user", this, this.themeColor.darkColor);
+        document.addEventListener("keydown", this.handleKey);
+        document.addEventListener("keydown", this.userPath.handleKey);
     }
 
     test() {
@@ -468,7 +472,7 @@ export class Board {
             this.answer.destroy();
         }
         this.svg.remove();
-        document.removeEventListener("keydown", this.handleKey.bind(this));
-        document.removeEventListener("keydown", this.userPath.handleKey.bind(this.userPath));
+        document.removeEventListener("keydown", this.handleKey);
+        document.removeEventListener("keydown", this.userPath.handleKey);
     }
 }

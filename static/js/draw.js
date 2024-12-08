@@ -1,4 +1,5 @@
 "use strict";
+
 import * as Common from './common.js';
 import * as Device from './device.js';
 

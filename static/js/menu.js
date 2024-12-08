@@ -1,5 +1,7 @@
 "use strict";
 
+import * as Device from './device.js';
+
 function control(slider) {
     let sliders = slider.children;
    
@@ -142,7 +144,7 @@ function control(slider) {
     }
 }
 
-export function createMenu() {
+export function createMenu(handleOut) {
     let slider = document.createElement('div');
     slider.classList.add('slider');
     slider.classList.add('fade-in');
@@ -158,6 +160,8 @@ export function createMenu() {
         .then(textContent => {
             slider.innerHTML = textContent;
             control(slider);
+            
+            document.addEventListener(Device.isMobileDevice() ? 'touchstart' : 'mousedown', handleOut);
         })
         .catch(error => {
             console.error('There has been a problem with your fetch operation:', error);

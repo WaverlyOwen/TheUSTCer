@@ -21,7 +21,7 @@ export function createLevel() {
             const scalingFactor = 0.1;
             const maxGPA = 4.3;
             const minGPA = 1.0;
-            let GPA = (minGPA + (maxGPA - minGPA) * (1 - Math.exp(-scalingFactor * level))).toFixed(2);
+            let GPA = (minGPA + (maxGPA - minGPA) * (1 - Math.exp(-scalingFactor * level)) ** 3).toFixed(2);
             document.getElementById('GPA').innerText = `GPA ${GPA}`;
         },
         size: function() {

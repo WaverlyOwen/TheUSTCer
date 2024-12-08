@@ -42,6 +42,7 @@ function onWndLoad() {
             case 'Tab' :
                 event.preventDefault();
                 board = createBoard(board, level, swipeDetector);
+                level.decrement();
                 break;
             case 'Enter' :
                 event.preventDefault();
