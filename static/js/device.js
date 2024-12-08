@@ -101,6 +101,10 @@ export function menu(dot, swipeDetector) {
         let slider = document.querySelector('.slider');
         const rect = slider.getBoundingClientRect();
   
+        if (isMobileDevice()) {
+            event = event.touches[0];
+        }
+        
         const x = event.clientX;
         const y = event.clientY;
   
