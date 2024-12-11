@@ -1,7 +1,7 @@
 "use strict";
 
 export function createLevel() {
-    let level = 70;
+    let level = 0;
     return {
         increment: function() {
             level++;
