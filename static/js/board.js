@@ -270,10 +270,13 @@ export class Board {
         this.themeColor = Common.getThemeColors();
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         this.level = level;
+        
+        this.scaleFactor = Math.min(1, Common.compareCssLengths("80vw", `${(level.size()[0] + 2) * 5}vh`), Common.compareCssLengths("50vh", `${(level.size()[1] + 1) * 5}vh`));
+
         Common.setAttribute(this.svg, [
             ["id", name], 
-            ["width", `${(level.size()[0] + 2) * 5}vh`],
-            ["height", `${(level.size()[1] + 1) * 5}vh`], 
+            ["width", `${(level.size()[0] + 2) * 5 * this.scaleFactor}vh`],
+            ["height", `${(level.size()[1] + 1) * 5 * this.scaleFactor}vh`], 
             ["viewBox", `-30 -30 ${(level.size()[0] + 2) * 50} ${(level.size()[1] + 1) * 50}`]
         ]);
         this.svg.classList.add("board");

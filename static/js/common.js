@@ -54,3 +54,19 @@ export function simulateKey(key) {
     });
     document.dispatchEvent(event);
 }
+
+export function compareCssLengths(value1, value2, baseElement = document.documentElement) {
+    const tempDiv = document.createElement("div");
+
+    baseElement.appendChild(tempDiv);
+
+    tempDiv.style.width = value1;
+    const width1 = tempDiv.offsetWidth;
+
+    tempDiv.style.width = value2;
+    const width2 = tempDiv.offsetWidth;
+
+    baseElement.removeChild(tempDiv);
+
+    return width1 / width2;
+}

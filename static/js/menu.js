@@ -80,12 +80,10 @@ function control(slider) {
         rotZ = transX / 20;
 
         transY = -Math.abs(transX / 15);
-     
-      
       
         curSlide.style.transition = 'none';
         curSlide.style.webkitTransform = 'translateX(' + transX + 'px)' + ' rotateZ(' + rotZ + 'deg)' + ' translateY(' + transY + 'px)';
-       curSlide.style.transform = 'translateX(' + transX + 'px)' + ' rotateZ(' + rotZ + 'deg)' + ' translateY(' + transY + 'px)';
+        curSlide.style.transform = 'translateX(' + transX + 'px)' + ' rotateZ(' + rotZ + 'deg)' + ' translateY(' + transY + 'px)';
         let j = 1;
         //remains elements
          for (let i = sliders.length -2; i >= 0; i--) {
@@ -94,12 +92,12 @@ function control(slider) {
         sliders[i].style.transform = 'translateX(' + transX/(2*j) + 'px)' + ' rotateZ(' + rotZ/(2*j) + 'deg)' + ' translateY(' + (Y_DIS*j) + 'px)'+ ' translateZ(' + (-Z_DIS*j) + 'px)';
         sliders[i].style.transition = 'none';
         j++;
-        }      
+        }
         
-          
-         
           initX =mouseX;
-          if (Math.abs(transX) >= curSlide.offsetWidth-30) {
+
+          
+          if (Math.abs(transX) >= curSlide.offsetWidth - (window.innerWidth < 500 ? 150 : 30)) {
             document.removeEventListener('mousemove', slideMouseMove, false);
             document.removeEventListener('touchmove', slideMouseMove, false);
             curSlide.style.transition = 'ease 0.2s';
