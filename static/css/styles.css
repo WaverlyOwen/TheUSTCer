@@ -44,7 +44,7 @@ body, html {
 
 #problem {
     position: fixed;
-    top: 30vh;
+    top: min(30vh, 70vw);
     left: 50%;
     transform: translateX(-50%);
 }
