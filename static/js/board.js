@@ -27,6 +27,7 @@ export class Path {
             ["fill", "none"]
         ]);
         this.board.svg.appendChild(this.line);
+
         this.handleKey = (event) => {
             switch (event.key) {
                 case 'd' : case 'D' : case 'ArrowRight' : 
@@ -152,23 +153,29 @@ export class Path {
         while (this.x !== this.size[0] || this.y !== this.size[1]) {
 
             const random = Math.random();
-            let now = 0;
+            let directions;
 
-            if (random < turnRate / 2) {
-                now = (last + 1) % 4;
-            } else if (random < turnRate) {
-                now = (last + 3) % 4;
+            if (Math.random() < 0.5) {
+                directions = [(last + 1) % 4, (last + 3) % 4];
             } else {
-                now = last;
+                directions = [(last + 3) % 4, (last + 1) % 4];
             }
 
-            if (this.step(now)) {
-                Draw.path(this, [this.x, this.y], this.distance);
-                this.updateLine();
-                if (this.valid()) {
-                    last = now;
-                } else {
-                    this.back();
+            if (random < turnRate) {
+                directions = [...directions, last];
+            } else {
+                directions = [last, ...directions];
+            }
+
+            for (let now of directions) {
+                if (this.step(now)) {
+                    Draw.path(this, [this.x, this.y], this.distance);
+                    if (this.valid()) {
+                        last = now;
+                        break;
+                    } else {
+                        this.back();
+                    }
                 }
             }
         }
@@ -189,7 +196,9 @@ export class Path {
         if (this.x <= this.size[0]) {
             this.map[this.x][this.y] = false;
         }
+
         const [newX, newY] = this.move([this.x, this.y], (now + 2) % 4, 1);
+
         this.x = newX;
         this.y = newY;
         this.d.pop();
@@ -270,7 +279,7 @@ export class Board {
         this.themeColor = Common.getThemeColors();
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         this.level = level;
-        
+            
         this.scaleFactor = Math.min(1, Common.compareCssLengths("80vw", `${(level.size()[0] + 2) * 5}vh`), Common.compareCssLengths("50vh", `${(level.size()[1] + 1) * 5}vh`));
 
         Common.setAttribute(this.svg, [
@@ -307,7 +316,7 @@ export class Board {
     }
 
     validAnswer() {
-        if (this.answer.group.length < Math.sqrt(this.size[0] * this.size[1]) && Math.sqrt(this.size[0] * this.size[1]) > 3) {
+        if (this.answer.group.length < Math.sqrt(this.size[0] * this.size[1] / 2) && Math.sqrt(this.size[0] * this.size[1]) > 3) {
             return false;
         }
         for (let i = 0; i < this.answer.group.length; i++) {

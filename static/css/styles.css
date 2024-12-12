@@ -96,15 +96,16 @@ text {
     transform: translateX(-50%);
     display: flex;
     flex-direction: row;
-    gap: min(1vh, 3vw);
+    gap: min(2vh, 4vw);
 }
 
 button {
-    padding: min(1vh, 2vw) min(2vh, 4vw);
-    font-size: min(2vh, 4vw);
-    border: min(0.3vh, 0.6vw) solid rgb(126, 126, 126);
+    padding: min(1.5vh, 3vw) min(1.5vh, 3vw);
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    font-size: min(2.5vh, 5vw);
+    border: min(0.3vh, 0.6vw) solid black;
     border-radius: min(2vh, 4vw);
-    background-color: #ffffff;
-    color: rgb(0, 0, 0);
+    background-color: white;
+    color: black;
     cursor: pointer;
 }
