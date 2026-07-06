@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { generatePuzzle } from '../src/core/generator.js';
+import { generatePuzzle, hasLocalLineCoverage } from '../src/core/generator.js';
 
 test('generator keeps letters disabled before all four families fit', () => {
     for (let i = 0; i < 50; i++) {
@@ -33,4 +33,17 @@ test('double-letter puzzles never repeat the same letter', () => {
         }
     }
     assert.equal(sawDoubleLetterPuzzle, true);
+});
+
+test('generated answers satisfy the 4x4 local line coverage gate', () => {
+    for (const [size, level] of [
+        [[7, 7], 60],
+        [[9, 9], 80],
+        [[10, 9], 85],
+    ]) {
+        for (let i = 0; i < 40; i++) {
+            const puzzle = generatePuzzle(size, level);
+            assert.equal(hasLocalLineCoverage(puzzle.answer, size), true);
+        }
+    }
 });

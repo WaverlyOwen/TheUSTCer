@@ -27,6 +27,9 @@ const CELL_NAMES = [
 
 const CELL_COLORS = ["#e69138", "#4272b8", "#4a9e6b", "#8e63b5", "#d64545", "#4272b8"];
 const LETTER_CELL_COLOR = "#3a3f4b";
+const FAIL_FLASH_STEPS = [true, false, true, false, true, false, true, false];
+const FAIL_FLASH_INTERVAL_MS = 120;
+const FAIL_FLASH_DURATION_MS = FAIL_FLASH_STEPS.length * FAIL_FLASH_INTERVAL_MS + 120;
 
 function svgElement(tag, attributes = {}) {
     const element = document.createElementNS(SVG_NS, tag);
@@ -131,7 +134,8 @@ export class BoardView {
         this.cellRects = Array.from({ length: size[0] }, () => Array(size[1]).fill(null));
         this.cellTexts = Array.from({ length: size[0] }, () => Array(size[1]).fill(null));
         this.roadTexts = new Map();
-        this.failRestores = [];
+        this.failHighlights = [];
+        this.failTimers = [];
         for (let i = 0; i < size[0]; i++) {
             for (let j = 0; j < size[1]; j++) {
                 if (sign[i][j][0][0]) {
@@ -228,59 +232,139 @@ export class BoardView {
 
     failEffect(details = null) {
         // 重新触发 CSS 动画；先还原上一次失败的高亮，避免连续失败叠加错乱
-        this.restoreFailHighlights();
+        this.clearFailFeedback();
         this.userLine.classList.remove('fail');
         void this.userLine.getBoundingClientRect();
         this.userLine.classList.add('fail');
 
         if (details) {
-            // 违规判定格：前景/背景色互换
-            for (const [i, j] of details.cells ?? []) {
-                const rect = this.cellRects[i]?.[j];
-                const text = this.cellTexts[i]?.[j];
-                if (!rect) {
-                    continue;
-                }
-                const rectFill = rect.getAttribute('fill');
-                if (text) {
-                    const textFill = text.getAttribute('fill');
-                    rect.setAttribute('fill', textFill);
-                    text.setAttribute('fill', rectFill);
-                    this.failRestores.push(() => {
+            this.prepareFailHighlights(details);
+            this.runFailHighlights();
+        }
+
+        this.failTimers.push(setTimeout(() => {
+            this.userLine.classList.remove('fail');
+            this.restoreFailHighlights();
+        }, FAIL_FLASH_DURATION_MS));
+    }
+
+    prepareFailHighlights(details) {
+        const seenCells = new Set();
+        const seenRoads = new Set();
+
+        // 违规判定格：前景/背景色来回互换，做成闪动效果
+        for (const [i, j] of details.cells ?? []) {
+            const key = `${i},${j}`;
+            if (seenCells.has(key)) {
+                continue;
+            }
+            seenCells.add(key);
+
+            const rect = this.cellRects[i]?.[j];
+            const text = this.cellTexts[i]?.[j];
+            if (!rect) {
+                continue;
+            }
+            const rectFill = rect.getAttribute('fill');
+            if (text) {
+                const textFill = text.getAttribute('fill');
+                this.failHighlights.push({
+                    set(active) {
+                        rect.setAttribute('fill', active ? textFill : rectFill);
+                        text.setAttribute('fill', active ? rectFill : textFill);
+                    },
+                    restore() {
                         rect.setAttribute('fill', rectFill);
                         text.setAttribute('fill', textFill);
-                    });
-                } else {
-                    rect.setAttribute('fill', LETTER_CELL_COLOR);
-                    this.failRestores.push(() => rect.setAttribute('fill', rectFill));
-                }
-            }
-            // 未穿过的黑色路名：闪红
-            for (const [i, j, orient] of details.roads ?? []) {
-                const road = this.roadTexts.get(`${i},${j},${orient}`);
-                if (road) {
-                    road.classList.add('road-flash');
-                    this.failRestores.push(() => road.classList.remove('road-flash'));
-                }
+                    },
+                });
+            } else {
+                this.failHighlights.push({
+                    set(active) {
+                        rect.setAttribute('fill', active ? LETTER_CELL_COLOR : rectFill);
+                    },
+                    restore() {
+                        rect.setAttribute('fill', rectFill);
+                    },
+                });
             }
         }
 
-        clearTimeout(this.failTimer);
-        this.failTimer = setTimeout(() => {
-            this.userLine.classList.remove('fail');
-            this.restoreFailHighlights();
-        }, 1200);
+        // 未穿过的黑色路名：同步闪红
+        for (const [i, j, orient] of details.roads ?? []) {
+            const key = `${i},${j},${orient}`;
+            if (seenRoads.has(key)) {
+                continue;
+            }
+            seenRoads.add(key);
+
+            const road = this.roadTexts.get(key);
+            if (!road) {
+                continue;
+            }
+            const roadFill = road.getAttribute('fill');
+            const roadOpacity = road.getAttribute('opacity');
+            this.failHighlights.push({
+                set(active) {
+                    if (active) {
+                        road.setAttribute('fill', '#d64545');
+                        road.setAttribute('opacity', '1');
+                    } else {
+                        if (roadFill === null) {
+                            road.removeAttribute('fill');
+                        } else {
+                            road.setAttribute('fill', roadFill);
+                        }
+                        road.setAttribute('opacity', '0.28');
+                    }
+                },
+                restore() {
+                    if (roadFill === null) {
+                        road.removeAttribute('fill');
+                    } else {
+                        road.setAttribute('fill', roadFill);
+                    }
+                    if (roadOpacity === null) {
+                        road.removeAttribute('opacity');
+                    } else {
+                        road.setAttribute('opacity', roadOpacity);
+                    }
+                },
+            });
+        }
+    }
+
+    runFailHighlights() {
+        if (!this.failHighlights.length) {
+            return;
+        }
+        FAIL_FLASH_STEPS.forEach((active, index) => {
+            this.failTimers.push(setTimeout(() => {
+                for (const highlight of this.failHighlights) {
+                    highlight.set(active);
+                }
+            }, index * FAIL_FLASH_INTERVAL_MS));
+        });
+    }
+
+    clearFailFeedback() {
+        for (const timer of this.failTimers) {
+            clearTimeout(timer);
+        }
+        this.failTimers = [];
+        this.restoreFailHighlights();
     }
 
     restoreFailHighlights() {
-        for (const restore of this.failRestores) {
-            restore();
+        for (const highlight of this.failHighlights) {
+            highlight.restore();
         }
-        this.failRestores = [];
+        this.failHighlights = [];
     }
 
     destroy() {
-        clearTimeout(this.failTimer);
+        this.clearFailFeedback();
+        this.userLine.classList.remove('fail');
         this.userAnimator.destroy();
         this.answerAnimator.destroy();
         this.svg.remove();

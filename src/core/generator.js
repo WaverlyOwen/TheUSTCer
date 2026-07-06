@@ -10,6 +10,7 @@ const TYPE_SCALE = [2, 2, 2, 4, 4, 11, 11, 1, 3, 5, 5, 2, 2, 5, 4];
 const SIGN_RATE = 0.7;
 const LETTER_ATTEMPTS = 128;
 const LETTER_CANDIDATE_LIMIT = 8;
+const LOCAL_COVERAGE_WINDOW = 4;
 
 // 难度系数：0（新手）→ 1（level 60+）
 function difficulty(level) {
@@ -147,6 +148,9 @@ function generateAnswerWithLetters(size, placements) {
 // 区域划分质量检查：区域够多、没有孤格或占半盘的巨区
 function validAnswer(answer, size) {
     const cells = size[0] * size[1];
+    if (!hasLocalLineCoverage(answer, size)) {
+        return false;
+    }
     if (answer.group.length < Math.sqrt(cells / 2) && Math.sqrt(cells) > 3) {
         return false;
     }
@@ -173,6 +177,9 @@ function scoreAnswer(answer, size, t) {
 // 只挡明显劣质盘（巨型空区/区域过少），孤格转为打分惩罚
 function validLetterAnswer(answer, size) {
     const cells = size[0] * size[1];
+    if (!hasLocalLineCoverage(answer, size)) {
+        return false;
+    }
     if (answer.group.length < 3) {
         return false;
     }
@@ -187,6 +194,58 @@ function validLetterAnswer(answer, size) {
 function scoreLetterAnswer(answer, size, t) {
     const singletons = answer.group.filter(member => member === 1).length;
     return scoreAnswer(answer, size, t) - singletons * 0.15;
+}
+
+function markTouchedCells(touched, x, y, size) {
+    if (x >= 0 && x < size[0] && y >= 0 && y < size[1]) {
+        touched[x][y] = true;
+    }
+}
+
+// 质控指标：任意滑动 4x4 方块中都至少要碰到一段答案线，避免大块空区。
+export function hasLocalLineCoverage(answer, size, window = LOCAL_COVERAGE_WINDOW) {
+    const [w, h] = size;
+    if (w < window || h < window) {
+        return true;
+    }
+
+    const touched = Array.from({ length: w }, () => Array(h).fill(false));
+    let position = [0, 0];
+
+    for (const move of answer.queue) {
+        const next = movePoint(position, move, 1);
+        if (move === 0 || move === 2) {
+            const edgeX = Math.min(position[0], next[0]);
+            const edgeY = position[1];
+            markTouchedCells(touched, edgeX, edgeY - 1, size);
+            markTouchedCells(touched, edgeX, edgeY, size);
+        } else {
+            const edgeX = position[0];
+            const edgeY = Math.min(position[1], next[1]);
+            markTouchedCells(touched, edgeX - 1, edgeY, size);
+            markTouchedCells(touched, edgeX, edgeY, size);
+        }
+        position = next;
+    }
+
+    for (let startX = 0; startX <= w - window; startX++) {
+        for (let startY = 0; startY <= h - window; startY++) {
+            let covered = false;
+            for (let x = startX; x < startX + window && !covered; x++) {
+                for (let y = startY; y < startY + window; y++) {
+                    if (touched[x][y]) {
+                        covered = true;
+                        break;
+                    }
+                }
+            }
+            if (!covered) {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 function randomItem(array) {
@@ -373,10 +432,18 @@ export function generatePuzzle(size, level = 0) {
                 candidates.push(candidate);
             }
         }
-        while (!candidates.length) {
-            // 兜底：极端情况下放宽质量过滤
+        let fallbackAttempts = 0;
+        while (!candidates.length && fallbackAttempts < 600) {
+            // 兜底：极端情况下只放宽旧的区域分布过滤，但保留 4x4 黑线覆盖质控
             const candidate = generateAnswer(size);
-            if (candidate) {
+            if (candidate && hasLocalLineCoverage(candidate, size)) {
+                candidates.push(candidate);
+            }
+            fallbackAttempts++;
+        }
+        while (!candidates.length) {
+            const candidate = generateAnswer(size);
+            if (candidate && hasLocalLineCoverage(candidate, size)) {
                 candidates.push(candidate);
             }
         }
