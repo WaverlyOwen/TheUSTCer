@@ -1,0 +1,182 @@
+body, html {
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    font-family: "Jua", sans-serif;
+    background-color: white;
+}
+
+#title {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    position: fixed;
+    top: 10vh;
+    width: 100%;
+    height: 10vh;
+    font-weight: 400;
+    font-style: normal;
+    font-size: min(8vh, 15vw);
+}
+
+#GPA {
+    position: fixed;
+    top: 20vh;
+    width: 100%;
+    text-align: center;
+    font-weight: normal;
+    font-style: normal;
+    font-size: min(3vh, 8vw);
+}
+
+#GPA.bump {
+    animation: gpa-bump 0.5s ease;
+}
+
+@keyframes gpa-bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.35); }
+    100% { transform: scale(1); }
+}
+
+#WA {
+    position: fixed;
+    top: 25vh;
+    width: 100%;
+    color: red;
+    text-align: center;
+    font-weight: normal;
+    font-style: normal;
+    font-size: min(5vh, 8vw);
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    pointer-events: none;
+}
+
+#problem {
+    position: fixed;
+    top: min(30vh, 70vw);
+    left: 50%;
+    transform: translateX(-50%);
+    touch-action: none;
+}
+
+.user-line {
+    transition: stroke 0.35s ease;
+}
+
+.user-line.win {
+    stroke: #e8b93c;
+    animation: win-breathe 0.9s ease;
+    filter: drop-shadow(0 0 4px rgba(232, 185, 60, 0.7));
+}
+
+@keyframes win-breathe {
+    0%, 100% { filter: drop-shadow(0 0 2px rgba(232, 185, 60, 0.45)); }
+    30% { filter: drop-shadow(0 0 9px rgba(232, 185, 60, 0.95)); }
+    60% { filter: drop-shadow(0 0 4px rgba(232, 185, 60, 0.6)); }
+    85% { filter: drop-shadow(0 0 8px rgba(232, 185, 60, 0.9)); }
+}
+
+.user-line.fail {
+    stroke: #d64545;
+    animation: fail-pulse 0.9s ease;
+}
+
+@keyframes fail-pulse {
+    0%, 40%, 80%, 100% { opacity: 1; }
+    20%, 60% { opacity: 0.3; }
+}
+
+/* 未穿过的黑色路名：闪红 */
+.road-flash {
+    fill: #d64545;
+    animation: road-flash-pulse 1.2s ease;
+}
+
+@keyframes road-flash-pulse {
+    0%, 40%, 80%, 100% { opacity: 1; }
+    20%, 60% { opacity: 0.2; }
+}
+
+text {
+    font-family: "ZCOOL KuaiLe", sans-serif;
+}
+
+@keyframes grow {
+    from {
+        r: 10;
+        stroke-width: 10;
+    }
+    to {
+        r: 12.5;
+        stroke-width: 5;
+    }
+}
+
+@keyframes shrink {
+    from {
+        r: 12.5;
+        stroke-width: 5;
+    }
+    to {
+        r: 10;
+        stroke-width: 10;
+    }
+}
+
+.dot:hover {
+    animation: grow 0.5s forwards;
+    cursor: pointer;
+}
+
+.dot:not(:hover) {
+    animation: shrink 0.5s forwards;
+}
+
+#mobile {
+    position: absolute;
+    bottom: 10vh;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: row;
+    gap: min(2vh, 4vw);
+}
+
+button {
+    padding: min(1.5vh, 3vw) min(1.5vh, 3vw);
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    font-size: min(2.5vh, 5vw);
+    border: min(0.3vh, 0.6vw) solid black;
+    border-radius: min(2vh, 4vw);
+    background-color: white;
+    color: black;
+    cursor: pointer;
+}
+
+#help {
+    position: fixed;
+    top: 3vh;
+    right: 3vh;
+    width: min(6vh, 12vw);
+    height: min(6vh, 12vw);
+    padding: 0;
+    border-radius: 50%;
+    font-size: min(3vh, 6vw);
+    line-height: 1;
+    z-index: 10;
+}
+
+#ending-replay-button {
+    position: fixed;
+    top: 3vh;
+    right: calc(3vh + min(6vh, 12vw) + 2vh);
+    width: min(6vh, 12vw);
+    height: min(6vh, 12vw);
+    padding: 0;
+    border-radius: 50%;
+    font-size: min(3vh, 6vw);
+    line-height: 1;
+    z-index: 10;
+}

@@ -1,0 +1,141 @@
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: scale(1.2) rotateX(45deg);
+    }
+    to {
+    }
+}
+
+@-webkit-keyframes fade-in {
+    from {
+        opacity: 0;
+        -webkit-transform: scale(1.2) rotateX(45deg);
+        transform: scale(1.2) rotateX(45deg);
+    }
+    to {
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+        transform: scale(1) rotateX(0deg);
+    }
+    to {
+        opacity: 0;
+        transform: scale(1.1) rotateX(45deg);
+    }
+}
+
+@-webkit-keyframes fade-out {
+    from {
+        opacity: 1;
+        -webkit-transform: scale(1) rotateX(0deg);
+        transform: scale(1) rotateX(0deg);
+    }
+    to {
+        opacity: 0;
+        -webkit-transform: scale(1.1) rotateX(45deg);
+        transform: scale(1.1) rotateX(45deg);
+    }
+}
+
+.slider div p{
+    color:#1c1c1c;
+    position:absolute;
+    bottom:-5vh;
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    font-size: 1.4vh;
+    line-height: 1.8vh;
+    width: auto;
+    text-align: left;
+    margin-left: 1vh;
+    margin-right: 1vh;
+}
+
+.slider{
+
+    position: absolute;
+    margin:6vh auto 0 auto;
+    left: 0;
+    right: 0;
+    height:36vh;
+    width:24vh;
+    padding:4vh;
+    bottom: 0;
+
+    perspective:100vh;
+    transition:ease-in-out .2s;
+}
+
+.slider.fade-in {
+    -webkit-animation: fade-in .8s ease .2s backwards;
+    animation: fade-in .8s ease .2s backwards;
+}
+
+.slider.fade-out {
+    -webkit-animation: fade-out .6s ease backwards;
+    animation: fade-out .6s ease backwards;
+}
+
+.slide img {
+    text-align:center;
+    width:100%;
+    height:100%;
+    -webkit-user-drag: none; /* Safari */
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none; /* WebKit */
+    -moz-user-select: none; /* Firefox */
+    border-radius: 0.5vh;
+}
+
+.slide{
+    -webkit-user-select: none;
+    user-select: none;
+    -moz-user-select: none;
+    position: absolute;
+    height: 28vh;
+    width: 24vh;
+
+    box-shadow: 0 1vh 3vh 0 rgba(0,0,0,0.15);
+    background: white;
+    -webkit-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+    -moz-transform-style: preserve-3d;
+    text-align: center;
+    border: 1.2vh white solid;
+    box-sizing: border-box;
+    border-bottom: 5.5vh white solid;
+    border-radius: 1vh;
+}
+
+.transition {
+    -webkit-transition: cubic-bezier(0,1.95,.49,.73) .4s ;
+    -moz-transition: cubic-bezier(0,1.95,.49,.73) .4s ;
+    transition: cubic-bezier(0,1.95,.49,.73) .4s ;
+}
+
+#dark-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+
+#dark-overlay.active {
+    opacity: 1;
+}
+
+.example {
+    position: absolute;
+    top: 10vh;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}

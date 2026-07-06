@@ -1,1 +1,26 @@
 # TheUSTCer
+
+科大主题的划线解谜游戏：从左上角圆点出发画一条路径走到右下角出口，路径划分出的每个区域要满足「红专并进 · 理实交融」的校训规则，黑色路名必须被穿过。高级关卡会出现 U/S/T/C 字母区块——包含它的区域必须恰好圈成该字母的形状（固定朝向、不可旋转、不可镜像，而且整块字母只能贴住一条边）。每过一关 GPA 上涨，向着传说中的 4.3 出发。
+
+## 操作
+
+- **桌面端**：鼠标从圆点拖动画线（回拖撤销），或 WASD / 方向键；`R` 清空，`Enter` 提交，`Tab` 换题（扣关卡），`Control` 看答案（扣关卡），`Shift` 隐藏答案
+- **移动端**：滑动画线 + 底部按钮
+- 右上角 `?` 查看图解规则；进度自动保存
+- 调试：URL 加 `?level=N` 从指定关卡开始（该会话不写存档）
+
+## 开发
+
+需要 Node.js ≥ 18。
+
+```bash
+npm install
+npm run dev      # 开发服务器
+npm run build    # 构建到 dist/（相对路径，可直接部署 GitHub Pages）
+npm test         # 运行纯逻辑与调试接口测试
+npm run preview  # 预览构建产物
+```
+
+开发环境下可在 Chrome console 里使用 `window.__ustcerDebug.help()` 查看调试指令。
+
+代码结构：`src/core`（路径模型/出题/判题，纯逻辑）、`src/render`（SVG 渲染）、`src/input`（键盘/鼠标/触摸）、`src/ui`（HUD/菜单/背景/结局动画）。格子与路名的编码说明见 [docs/reference.txt](docs/reference.txt)。
