@@ -5,6 +5,21 @@ import { load, save } from '../lib/storage.js';
 const STORAGE_KEY = 'level';
 export const MAX_GPA_TEXT = '4.30';
 
+export function gpaValueForLevel(level) {
+    const scalingFactor = 0.1;
+    const maxGPA = 4.3;
+    const minGPA = 1.0;
+    return minGPA + (maxGPA - minGPA) * (1 - Math.exp(-scalingFactor * level)) ** 3;
+}
+
+export function gpaTextForLevel(level) {
+    return gpaValueForLevel(level).toFixed(2);
+}
+
+export function sizeForLevel(level) {
+    return [Math.floor(level / 10 + 1.5), Math.floor(level / 10 + 1)];
+}
+
 export function createLevel({ persist = true, initial = null } = {}) {
     let level = 0;
     if (initial !== null && Number.isInteger(initial) && initial >= 0) {
@@ -32,19 +47,16 @@ export function createLevel({ persist = true, initial = null } = {}) {
             return level;
         },
         gpaText() {
-            const scalingFactor = 0.1;
-            const maxGPA = 4.3;
-            const minGPA = 1.0;
-            return (minGPA + (maxGPA - minGPA) * (1 - Math.exp(-scalingFactor * level)) ** 3).toFixed(2);
+            return gpaTextForLevel(level);
         },
         isMax() {
             return api.gpaText() === MAX_GPA_TEXT;
         },
         size() {
-            return [Math.floor(level / 10 + 1.5), Math.floor(level / 10 + 1)];
+            return sizeForLevel(level);
         },
         sizeAt(value) {
-            return [Math.floor(value / 10 + 1.5), Math.floor(value / 10 + 1)];
+            return sizeForLevel(value);
         },
         increment() {
             level++;

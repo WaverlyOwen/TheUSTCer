@@ -1,50 +1,42 @@
 "use strict";
 
 // USTC 字母区块：路径圈出的区域必须与字母形状完全一致（固定朝向，不旋转、不镜像）。
-// 字母以其某条实心边贴住棋盘外框放置，"内部轮廓"（轮廓减去与外框重合的部分）
-// 恰好构成一条两端落在外框上的开放链——路径沿链走一遍即可圈出该字母。
-// 只贴一条边（其余三面留空），避免贴角带来的平凡解。
+// 字母贴住棋盘外框放置时，"内部轮廓"（轮廓减去与外框重合的部分）恰好构成
+// 一条两端落在外框上的开放链——路径沿链走一遍即可圈出该字母。
+// 贴边规则：任意一条外框边都可以贴，但不得同时接触两条边（贴角/横跨会让题目变平凡）；
+// 仅当某字母在小板上不存在单边放置时，才豁免允许贴 2-3 条边（字母题刚解锁的尺寸）。
 
-// o = 区域格；字形按正立方向书写
+// x = 区域格（字形按正立方向书写；不对称设计增加可贴边的放置数）
 export const LETTER_MASKS = [
+    ['xooo',
+     'xoox',
+     'xoox',
+     'xoox',
+     'xxxx'],           // U —— 左臂高一格
+    ['xxxo',
+     'xooo',
+     'xxxx',
+     'ooox',
+     'oxxx'],           // S
+    ['xxxx',
+     'oxoo',
+     'oxoo',
+     'oxoo',
+     'oxoo'],           // T —— 竖笔偏左
     ['oxxo',
-     'oxxo',
-     'oxxo',
-     'oxxo',
-     'oooo'],           // U —— 开口朝上，实心边在底
-    ['oooo',
-     'oxxx',
-     'oooo',
-     'xxxo',
-     'oooo'],           // S —— 实心边在顶/底
-    ['oooo',
-     'xoox',
-     'xoox',
-     'xoox',
-     'xoox'],           // T —— 横梁在顶，双格竖笔朝下
-    ['oooo',
-     'oxxx',
-     'oxxx',
-     'oxxx',
-     'oooo'],           // C —— 开口朝右，实心边在左
+     'xxoo',
+     'xooo',
+     'xxoo',
+     'oxxx'],           // C —— 圆角开口朝右
 ];
 
 export const LETTER_NAMES = ['U', 'S', 'T', 'C'];
-export const LETTER_FLUSH_SIDES = [
-    ['bottom'],
-    ['top', 'bottom'],
-    ['top'],
-    ['left'],
-];
-
-// 每个字母允许贴的外框边（与字形朝向一致，保证区域形状可读作该字母）
-const FLUSH_SIDES = LETTER_FLUSH_SIDES.map(sides => new Set(sides));
 
 function maskToCells(mask) {
     const cells = [];
     for (let row = 0; row < mask.length; row++) {
         for (let col = 0; col < mask[row].length; col++) {
-            if (mask[row][col] === 'o') {
+            if (mask[row][col] === 'x') {
                 cells.push([col, row]);
             }
         }
@@ -203,42 +195,46 @@ function analyzePlacement(letterIndex, shape, ox, oy, w, h) {
     };
 }
 
-// 枚举所有字母×平移的合法放置（仅贴单边、字形朝向正确者）
-export function findPlacements(size) {
-    const [w, h] = size;
-    const placements = [];
-    for (let letterIndex = 0; letterIndex < SHAPES.length; letterIndex++) {
-        const shape = SHAPES[letterIndex];
-        let maxX = 0;
-        let maxY = 0;
-        for (const [x, y] of shape) {
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-        }
-        for (let ox = 0; ox + maxX < w; ox++) {
-            for (let oy = 0; oy + maxY < h; oy++) {
-                const sides = touchedSides(shape, ox, oy, w, h);
-                if (sides.length !== 1 || !FLUSH_SIDES[letterIndex].has(sides[0])) {
-                    continue;
-                }
-                const placement = analyzePlacement(letterIndex, shape, ox, oy, w, h);
-                if (placement) {
-                    placement.flushSide = sides[0];
-                    placements.push(placement);
-                }
+// 枚举某个字母的全部几何合法放置，附带贴边信息
+function placementsForLetter(letterIndex, w, h) {
+    const shape = SHAPES[letterIndex];
+    let maxX = 0;
+    let maxY = 0;
+    for (const [x, y] of shape) {
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+    }
+    const results = [];
+    for (let ox = 0; ox + maxX < w; ox++) {
+        for (let oy = 0; oy + maxY < h; oy++) {
+            const sides = touchedSides(shape, ox, oy, w, h);
+            if (!sides.length) {
+                continue;
+            }
+            const placement = analyzePlacement(letterIndex, shape, ox, oy, w, h);
+            if (placement) {
+                placement.sides = sides;
+                placement.flushSide = sides[0];
+                results.push(placement);
             }
         }
     }
-    return placements;
+    return results;
 }
 
-// 按字母分组的合法放置，供生成器均匀选字母
+// 每个字母：优先只取"恰好贴一条边"的放置；小板放不下单边时豁免为贴多边
 export function placementsByLetter(size) {
-    const byLetter = SHAPES.map(() => []);
-    for (const placement of findPlacements(size)) {
-        byLetter[placement.letterIndex].push(placement);
-    }
-    return byLetter;
+    const [w, h] = size;
+    return SHAPES.map((_, letterIndex) => {
+        const all = placementsForLetter(letterIndex, w, h);
+        const strict = all.filter(placement => placement.sides.length === 1);
+        return strict.length ? strict : all;
+    });
+}
+
+// 兼容旧接口：拍平的全部放置
+export function findPlacements(size) {
+    return placementsByLetter(size).flat();
 }
 
 export function hasAllLetterPlacements(size) {

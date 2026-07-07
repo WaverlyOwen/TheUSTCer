@@ -6,13 +6,14 @@ import test from 'node:test';
 import { generatePuzzle, hasLocalLineCoverage } from '../src/core/generator.js';
 
 test('generator keeps letters disabled before all four families fit', () => {
+    // 5×5 放不下 S/T/C（默认要求四种字母齐全），不应出字母
     for (let i = 0; i < 50; i++) {
-        const puzzle = generatePuzzle([7, 6], 55);
+        const puzzle = generatePuzzle([5, 5], 55);
         assert.equal(puzzle.letters.length, 0);
     }
 });
 
-test('generator eventually produces all four letters once 7x7 opens', () => {
+test('generator eventually produces all four letters on a modest board', () => {
     const seen = new Set();
     for (let i = 0; i < 1200 && seen.size < 4; i++) {
         const puzzle = generatePuzzle([9, 9], 80);

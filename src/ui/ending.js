@@ -252,3 +252,55 @@ export function showReplayButton() {
     button.addEventListener('click', () => playEnding());
     document.body.appendChild(button);
 }
+
+export function playMilestoneCelebration({
+    title,
+    subtitle,
+    detail = '',
+    accent = 'gold',
+    primaryLabel = '继续',
+}) {
+    return new Promise((resolve) => {
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const overlay = document.createElement('div');
+        overlay.className = 'milestone-overlay';
+        overlay.innerHTML = `
+            <canvas class="ending-fireworks"></canvas>
+            <div class="milestone-panel ${accent}">
+                <div class="milestone-kicker">里程碑达成</div>
+                <div class="milestone-title">${title}</div>
+                <div class="milestone-subtitle">${subtitle}</div>
+                ${detail ? `<div class="milestone-detail">${detail}</div>` : ''}
+                <button type="button" class="milestone-button">${primaryLabel}</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('active'));
+
+        let stopFireworks = null;
+        if (!reducedMotion) {
+            stopFireworks = createFireworks(overlay.querySelector('.ending-fireworks'));
+        }
+
+        let done = false;
+        function close() {
+            if (done) {
+                return;
+            }
+            done = true;
+            stopFireworks?.();
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                overlay.remove();
+                resolve();
+            }, 320);
+        }
+
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) {
+                close();
+            }
+        });
+        overlay.querySelector('.milestone-button').addEventListener('click', close);
+    });
+}

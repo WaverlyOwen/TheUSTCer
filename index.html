@@ -13,6 +13,9 @@
         #WA { opacity: 0; }
         #title { display: flex; align-items: flex-end; justify-content: center; position: fixed; top: 10vh; width: 100%; height: 10vh; font-size: min(8vh, 15vw); }
         #GPA { position: fixed; top: 20vh; width: 100%; text-align: center; font-size: min(3vh, 8vw); }
+        #hud-meta { position: fixed; top: 24vh; width: 100%; text-align: center; font-size: min(2vh, 4.5vw); }
+        #hud-status { position: fixed; top: 27vh; width: 100%; text-align: center; font-size: min(1.8vh, 4vw); }
+        #mode { position: fixed; top: 3vh; left: 3vh; }
         #help { position: fixed; top: 3vh; right: 3vh; }
     </style>
 </head>
@@ -20,7 +23,10 @@
     <div class="particle-network-animation"></div>
     <div id="title">The USTCer</div>
     <div id="GPA"></div>
+    <div id="hud-meta"></div>
+    <div id="hud-status"></div>
     <div id="WA" style="opacity: 0">WRONG ANSWER</div>
+    <button id="mode" title="切换模式">模式</button>
     <button id="help" title="游戏规则">?</button>
     <script type="module" src="/src/main.js"></script>
 </body>

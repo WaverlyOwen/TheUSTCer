@@ -109,7 +109,7 @@ function control(slider) {
 }
 
 // 帮助按钮开关规则菜单；打开时暂停移动端滑动画线，点击菜单外区域关闭
-export function setupMenu(button, swipeDetector) {
+export function setupMenu(button, swipeDetector, callbacks = {}) {
     let open = false;
     const pressEvent = isMobileDevice() ? 'touchstart' : 'mousedown';
 
@@ -147,10 +147,12 @@ export function setupMenu(button, swipeDetector) {
 
         open = false;
         document.removeEventListener(pressEvent, handleOut);
+        callbacks.onClose?.();
     }
 
     function show() {
         swipeDetector?.removeEventListener();
+        callbacks.onOpen?.();
 
         let overlay = document.getElementById('dark-overlay');
         if (!overlay) {

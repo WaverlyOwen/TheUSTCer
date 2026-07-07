@@ -13,6 +13,7 @@ const EDGE_TEXT = {
     top: '上边',
     bottom: '底边',
     left: '左边',
+    right: '右边',
 };
 
 function renderMaskSvg(mask, label) {
@@ -31,7 +32,7 @@ function renderMaskSvg(mask, label) {
                     height="12"
                     rx="3"
                     ry="3"
-                    fill="${mask[row][col] === 'o' ? MARKER_FILL : '#eceff4'}"
+                    fill="${mask[row][col] === 'x' ? MARKER_FILL : '#eceff4'}"
                     stroke="#c9ced8"
                     stroke-width="1"
                 ></rect>`);
@@ -120,7 +121,7 @@ function renderOverviewSlide() {
             <div style="display:flex;justify-content:center;align-items:flex-start;gap:0.8rem;flex-wrap:wrap;">
                 ${LETTER_MASKS.map((mask, index) => renderMaskSvg(mask, LETTER_NAMES[index])).join('')}
             </div>
-            <p>字母题里的 U / S / T / C 都是固定朝向：不可旋转，不可镜像，而且整个字母只能贴住一条边。</p>
+            <p>字母题里的 U / S / T / C 都是固定朝向：不可旋转，不可镜像，而且整个字母不能同时贴住两条边（棋盘太小放不下单边时才有豁免）。</p>
         </div>`;
 }
 
@@ -129,7 +130,7 @@ function renderExampleSlide(letterIndex) {
     return `
         <div class="slide">
             ${renderBoardExample(letterIndex)}
-            <p>示例 ${LETTER_NAMES[letterIndex]}：路径和边框围出的浅色区域恰好是 ${LETTER_NAMES[letterIndex]}，并且这个字母只贴${EDGE_TEXT[placement.flushSide]}。</p>
+            <p>示例 ${LETTER_NAMES[letterIndex]}：路径和边框围出的浅色区域恰好是 ${LETTER_NAMES[letterIndex]}，并且这个字母只贴了${EDGE_TEXT[placement.flushSide]}这一条边。</p>
         </div>`;
 }
 

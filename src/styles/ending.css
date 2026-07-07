@@ -164,3 +164,81 @@
     background: white;
     color: #8a6d1a;
 }
+
+.milestone-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 101;
+    background: rgba(8, 8, 20, 0.9);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.milestone-overlay.active {
+    opacity: 1;
+}
+
+.milestone-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.92);
+    width: min(84vw, 54vh);
+    padding: 3.2vh 3.4vh;
+    border-radius: 1.4vh;
+    background: rgba(255, 252, 244, 0.97);
+    border: 0.35vh solid #111;
+    box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.35);
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.milestone-overlay.active .milestone-panel {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.milestone-kicker {
+    color: #666;
+    font-size: min(1.7vh, 3.6vw);
+}
+
+.milestone-title {
+    margin-top: 0.6vh;
+    font-size: min(5vh, 10vw);
+    line-height: 1.05;
+    color: #111;
+}
+
+.milestone-subtitle {
+    margin-top: 1.2vh;
+    font-size: min(2.5vh, 5vw);
+    line-height: 1.35;
+    color: #222;
+}
+
+.milestone-detail {
+    margin-top: 1.4vh;
+    font-size: min(1.9vh, 3.9vw);
+    line-height: 1.6;
+    color: #555;
+}
+
+.milestone-button {
+    margin-top: 2.2vh;
+    font-size: min(2vh, 4vw);
+    padding: 1vh 2.2vh;
+    color: white;
+    background: #111;
+}
+
+.milestone-panel.gold .milestone-title {
+    color: #b8860b;
+}
+
+.milestone-panel.teal .milestone-title {
+    color: #14777a;
+}
+
+.milestone-panel.rose .milestone-title {
+    color: #b04663;
+}

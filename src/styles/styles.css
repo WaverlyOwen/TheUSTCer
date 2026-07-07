@@ -33,6 +33,28 @@ body, html {
     animation: gpa-bump 0.5s ease;
 }
 
+#hud-meta,
+#hud-status {
+    position: fixed;
+    width: 100%;
+    text-align: center;
+    font-weight: normal;
+    font-style: normal;
+    pointer-events: none;
+}
+
+#hud-meta {
+    top: 24vh;
+    font-size: min(2vh, 4.5vw);
+    color: #2c2c2c;
+}
+
+#hud-status {
+    top: 27vh;
+    font-size: min(1.8vh, 4vw);
+    color: #666;
+}
+
 @keyframes gpa-bump {
     0% { transform: scale(1); }
     40% { transform: scale(1.35); }
@@ -55,7 +77,7 @@ body, html {
 
 #problem {
     position: fixed;
-    top: min(30vh, 70vw);
+    top: min(32vh, 74vw);
     left: 50%;
     transform: translateX(-50%);
     touch-action: none;
@@ -134,7 +156,7 @@ text {
 }
 
 button {
-    padding: min(1.5vh, 3vw) min(1.5vh, 3vw);
+    padding: min(1.5vh, 3vw) min(1.8vh, 3.8vw);
     font-family: "ZCOOL KuaiLe", sans-serif;
     font-size: min(2.5vh, 5vw);
     border: min(0.3vh, 0.6vw) solid black;
@@ -144,17 +166,28 @@ button {
     cursor: pointer;
 }
 
+#mode,
 #help {
     position: fixed;
     top: 3vh;
+    height: min(6vh, 12vw);
+    z-index: 10;
+}
+
+#mode {
+    left: 3vh;
+    padding-inline: min(2.2vh, 5vw);
+    border-radius: min(3vh, 6vw);
+    font-size: min(2.3vh, 4.6vw);
+}
+
+#help {
     right: 3vh;
     width: min(6vh, 12vw);
-    height: min(6vh, 12vw);
     padding: 0;
     border-radius: 50%;
     font-size: min(3vh, 6vw);
     line-height: 1;
-    z-index: 10;
 }
 
 #ending-replay-button {
@@ -168,4 +201,275 @@ button {
     font-size: min(3vh, 6vw);
     line-height: 1;
     z-index: 10;
+}
+
+#loading-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(18, 20, 28, 0.34);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+    z-index: 110;
+}
+
+#loading-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.loading-panel {
+    display: grid;
+    justify-items: center;
+    gap: 1.8vh;
+    padding: 3vh 3.4vh;
+    min-width: min(72vw, 34vh);
+    background: rgba(255, 255, 255, 0.94);
+    border: 0.3vh solid #111;
+    border-radius: 1.2vh;
+    box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.18);
+}
+
+.loading-spinner {
+    width: min(6vh, 12vw);
+    height: min(6vh, 12vw);
+    border: 0.7vh solid rgba(0, 0, 0, 0.14);
+    border-top-color: #111;
+    border-radius: 50%;
+    animation: loading-spin 0.9s linear infinite;
+}
+
+.loading-message {
+    color: #111;
+    font-size: min(2vh, 4vw);
+}
+
+@keyframes loading-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+#mode-menu-root {
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+}
+
+.mode-menu-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.48);
+}
+
+.mode-menu-panel {
+    position: absolute;
+    top: 8vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(92vw, 66vh);
+    max-height: 84vh;
+    overflow-y: auto;
+    padding: 2.4vh;
+    background: rgba(255, 255, 255, 0.97);
+    border: 0.3vh solid #111;
+    border-radius: 1.4vh;
+    box-shadow: 0 2vh 7vh rgba(0, 0, 0, 0.2);
+}
+
+.mode-menu-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 2vh;
+    margin-bottom: 2vh;
+}
+
+.mode-menu-eyebrow {
+    font-size: min(1.7vh, 3.5vw);
+    color: #666;
+}
+
+.mode-menu-header h2 {
+    margin: 0.4vh 0 0;
+    font-size: min(3.6vh, 7vw);
+    line-height: 1.05;
+}
+
+.mode-menu-close {
+    width: min(5.4vh, 11vw);
+    height: min(5.4vh, 11vw);
+    padding: 0;
+    border-radius: 50%;
+    font-size: min(3vh, 6vw);
+    line-height: 1;
+}
+
+.mode-menu-section {
+    padding: 1.8vh 0 2vh;
+    border-top: 0.2vh solid #d9d9d9;
+}
+
+.mode-menu-section:first-of-type {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.mode-menu-section.active .mode-menu-section-title span:first-child {
+    color: #111;
+}
+
+.mode-menu-section-title {
+    display: flex;
+    align-items: center;
+    gap: 1vh;
+    font-size: min(2.5vh, 5vw);
+}
+
+.mode-current {
+    padding: 0.3vh 1vh;
+    border-radius: 999px;
+    background: #111;
+    color: white;
+    font-size: min(1.4vh, 3vw);
+}
+
+.mode-summary,
+.mode-lock,
+.mode-note {
+    margin: 1vh 0 0;
+    color: #444;
+    font-size: min(1.8vh, 3.8vw);
+    line-height: 1.55;
+}
+
+.mode-note {
+    color: #6a4f0b;
+}
+
+.mode-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1vh;
+    margin-top: 1.4vh;
+}
+
+.mode-pill,
+.mode-primary,
+.mode-secondary {
+    font-size: min(1.9vh, 3.8vw);
+}
+
+.mode-pill {
+    border-radius: 999px;
+}
+
+.mode-pill.selected {
+    background: #111;
+    color: white;
+}
+
+.mode-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1vh;
+    margin-top: 1.6vh;
+}
+
+.mode-primary {
+    background: #111;
+    color: white;
+}
+
+.mode-secondary {
+    background: white;
+    color: #111;
+}
+
+.challenge-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.2vh;
+    margin-top: 1.4vh;
+}
+
+.mode-field {
+    display: grid;
+    gap: 0.7vh;
+    font-size: min(1.8vh, 3.7vw);
+    color: #333;
+}
+
+.mode-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 1vh 1.2vh;
+    border: 0.2vh solid #111;
+    border-radius: 0.8vh;
+    font-family: "Jua", sans-serif;
+    font-size: min(2vh, 4vw);
+}
+
+.challenge-toggles {
+    display: grid;
+    gap: 1vh;
+    margin-top: 1.6vh;
+}
+
+.mode-toggle {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.8vh 1vh;
+    padding: 1vh 1.2vh;
+    border: 0.2vh solid #cfcfcf;
+    border-radius: 0.8vh;
+}
+
+.mode-toggle input {
+    width: min(2.2vh, 4.8vw);
+    height: min(2.2vh, 4.8vw);
+    margin: 0;
+}
+
+.mode-toggle span {
+    font-size: min(1.9vh, 3.9vw);
+    color: #111;
+}
+
+.mode-toggle small {
+    grid-column: 2;
+    color: #666;
+    font-size: min(1.45vh, 3.1vw);
+    line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+    #title {
+        top: 8vh;
+    }
+
+    #GPA {
+        top: 18vh;
+    }
+
+    #hud-meta {
+        top: 22.5vh;
+    }
+
+    #hud-status {
+        top: 25.5vh;
+        padding-inline: 6vw;
+        box-sizing: border-box;
+    }
+
+    #problem {
+        top: min(31vh, 84vw);
+    }
+
+    .mode-menu-panel {
+        top: 6vh;
+        padding: 2vh;
+    }
 }
