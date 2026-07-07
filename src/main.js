@@ -29,6 +29,7 @@ import {
     saveUnlocks,
     timedSession,
     unlocksForLevel,
+    challengeLettersSupported,
 } from './core/game-state.js';
 import { Path } from './core/path.js';
 import { checkSolution } from './core/validator.js';
@@ -71,8 +72,8 @@ function challengeNote(config) {
     if (config.letters && !byLetter.some((placements) => placements.length)) {
         return '当前尺寸放不下 4×5 字母，这局会自动退回普通题。';
     }
-    if (config.letters && config.width * config.height > 484) {
-        return '棋盘超过 22×22 时字母会自动关闭（生成太慢且字母占比过小）。';
+    if (!challengeLettersSupported(config)) {
+        return '棋盘超过 22×22 时字母题会保持关闭；缩回 22×22 及以下就能重新打开。';
     }
     if (config.difficulty === 'hard') {
         return '高压会更严格压缩留白，并扩大双字母和致密路径的出现机会。';
@@ -141,13 +142,39 @@ async function startGame() {
 
     function classicElapsedMs(now = Date.now()) {
         const end = classicRun.finishedAt ?? now;
-        return Math.max(0, end - classicRun.startedAt - (classicRun.pausedMs ?? 0));
+        const livePauseMs = currentMode === MODE_CLASSIC ? activePauseMs(now) : 0;
+        const suspendedMs = classicSuspendedAt === null ? 0 : Math.max(0, end - classicSuspendedAt);
+        return Math.max(0, end - classicRun.startedAt - (classicRun.pausedMs ?? 0) - livePauseMs - suspendedMs);
     }
 
     // 计时暂停：菜单/加载/庆祝动画等"非游玩"时段不计入用时与倒计时。
     // 引用计数，允许嵌套；恢复时把这段时长补给经典 pausedMs、并顺延计时模式 startedAt。
     let pauseDepth = 0;
     let pauseStartedAt = 0;
+    let classicSuspendedAt = null;
+
+    function activePauseMs(now = Date.now()) {
+        return pauseDepth > 0 ? Math.max(0, now - pauseStartedAt) : 0;
+    }
+
+    function suspendClassicRun() {
+        if (classicRun.finishedAt !== null || classicSuspendedAt !== null) {
+            return;
+        }
+        classicSuspendedAt = Date.now();
+    }
+
+    function resumeClassicRun() {
+        if (classicSuspendedAt === null) {
+            return;
+        }
+        const delta = Date.now() - classicSuspendedAt;
+        classicSuspendedAt = null;
+        if (delta > 0) {
+            classicRun.pausedMs = (classicRun.pausedMs ?? 0) + delta;
+            saveClassic();
+        }
+    }
 
     function pushPause() {
         if (pauseDepth++ === 0) {
@@ -162,9 +189,11 @@ async function startGame() {
         if (--pauseDepth === 0) {
             const delta = Date.now() - pauseStartedAt;
             if (delta > 0) {
-                classicRun.pausedMs = (classicRun.pausedMs ?? 0) + delta;
-                saveClassic();
-                if (timedRun && !timedRun.ended) {
+                if (currentMode === MODE_CLASSIC) {
+                    classicRun.pausedMs = (classicRun.pausedMs ?? 0) + delta;
+                    saveClassic();
+                }
+                if (currentMode === MODE_TIMED && timedRun && !timedRun.ended) {
                     timedRun.startedAt += delta;
                 }
             }
@@ -176,7 +205,8 @@ async function startGame() {
         if (!timedRun) {
             return timedDuration * 60_000;
         }
-        return Math.max(0, timedRun.startedAt + timedRun.durationMinutes * 60_000 - now);
+        const livePauseMs = currentMode === MODE_TIMED ? activePauseMs(now) : 0;
+        return Math.max(0, timedRun.startedAt + timedRun.durationMinutes * 60_000 - now + livePauseMs);
     }
 
     function currentLevelValue() {
@@ -456,6 +486,7 @@ async function startGame() {
 
     async function enterClassicMode({ refresh = false } = {}) {
         const changed = currentMode !== MODE_CLASSIC;
+        resumeClassicRun();
         currentMode = MODE_CLASSIC;
         if (changed || refresh || !board) {
             await newBoard();
@@ -464,6 +495,9 @@ async function startGame() {
     }
 
     async function startTimedMode() {
+        if (currentMode === MODE_CLASSIC) {
+            suspendClassicRun();
+        }
         currentMode = MODE_TIMED;
         timedRun = timedSession(timedDuration);
         await newBoard();
@@ -471,6 +505,9 @@ async function startGame() {
     }
 
     async function startChallengeMode() {
+        if (currentMode === MODE_CLASSIC) {
+            suspendClassicRun();
+        }
         currentMode = MODE_CHALLENGE;
         challengeRun = challengeSession(challengeConfig);
         await newBoard({ forceLoading: true });
@@ -481,6 +518,7 @@ async function startGame() {
         classicRun = persistClassic
             ? resetClassicRun()
             : { level: 0, startedAt: Date.now(), finishedAt: null, pausedMs: 0 };
+        classicSuspendedAt = null;
         unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false };
         timedRun = null;
         challengeRun = null;
@@ -718,7 +756,7 @@ async function startGame() {
             getUserPath: () => userPath,
             getBusy: () => transitionBusy || generating,
             reloadBoard: () => {
-                void newBoard();
+                return newBoard();
             },
             syncUserLine,
             showAnswer: () => board?.showAnswer(),
@@ -728,6 +766,7 @@ async function startGame() {
                 classicRun = persistClassic
                     ? resetClassicRun()
                     : { level: 0, startedAt: Date.now(), finishedAt: null, pausedMs: 0 };
+                classicSuspendedAt = null;
                 unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false };
                 timedRun = null;
                 challengeRun = null;

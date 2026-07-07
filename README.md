@@ -22,6 +22,8 @@ npm test         # 运行纯逻辑与调试接口测试
 npm run preview  # 预览构建产物
 ```
 
+GitHub Pages 部署：仓库设置里把 `Pages -> Build and deployment -> Source` 设为 `GitHub Actions`，随后推送到 `main` 或手动触发 `Deploy To GitHub Pages` 工作流。
+
 开发环境下可在 Chrome console 里使用 `window.__ustcerDebug.help()` 查看调试指令。
 
 代码结构：`src/core`（路径模型/出题/判题，纯逻辑）、`src/render`（SVG 渲染）、`src/input`（键盘/鼠标/触摸）、`src/ui`（HUD/菜单/背景/结局动画）。格子与路名的编码说明见 [docs/reference.txt](docs/reference.txt)。

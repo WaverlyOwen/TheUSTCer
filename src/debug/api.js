@@ -77,6 +77,10 @@ export function createDebugApi({
         }
     }
 
+    async function rerollBoard() {
+        await Promise.resolve(reloadBoard({ fresh: true, prefetch: false }));
+    }
+
     function state() {
         const puzzle = getPuzzle();
         const userPath = getUserPath();
@@ -91,21 +95,21 @@ export function createDebugApi({
         };
     }
 
-    function reload() {
+    async function reload() {
         assertIdle();
         hideAnswer();
-        reloadBoard({ fresh: true, prefetch: false });
+        await rerollBoard();
         return state();
     }
 
-    function setLevelValue(nextLevel) {
+    async function setLevelValue(nextLevel) {
         if (!Number.isInteger(nextLevel) || nextLevel < 0) {
             throw new Error('Level must be a non-negative integer.');
         }
         assertIdle();
         hideAnswer();
         level.set(nextLevel);
-        reloadBoard({ fresh: true, prefetch: false });
+        await rerollBoard();
         return state();
     }
 
@@ -128,7 +132,7 @@ export function createDebugApi({
         };
     }
 
-    function seekLetters(input) {
+    async function seekLetters(input) {
         assertIdle();
         hideAnswer();
         const wanted = normalizeLetters(input);
@@ -143,13 +147,17 @@ export function createDebugApi({
         }
 
         const matches = () => {
-            const present = new Set(summarizeLetters(getPuzzle()).map(entry => entry.letter));
+            const nextPuzzle = getPuzzle();
+            if (!nextPuzzle) {
+                return false;
+            }
+            const present = new Set(summarizeLetters(nextPuzzle).map(entry => entry.letter));
             return wanted.every(letter => present.has(letter));
         };
 
         let attempts = 0;
         while (!matches() && attempts < MAX_SEEK_ATTEMPTS) {
-            reloadBoard({ fresh: true, prefetch: false });
+            await rerollBoard();
             attempts++;
         }
         if (!matches()) {
@@ -165,15 +173,15 @@ export function createDebugApi({
     function help() {
         const lines = [
             'window.__ustcerDebug.state()',
-            'window.__ustcerDebug.setLevel(60)',
-            'window.__ustcerDebug.setLevel(85)',
-            'window.__ustcerDebug.reload()',
+            'await window.__ustcerDebug.setLevel(60)',
+            'await window.__ustcerDebug.setLevel(85)',
+            'await window.__ustcerDebug.reload()',
             'window.__ustcerDebug.solve()',
             'window.__ustcerDebug.showAnswer() / hideAnswer()',
-            "window.__ustcerDebug.seekLetter('S')",
-            "window.__ustcerDebug.seekLetters(['U', 'C'])",
+            "await window.__ustcerDebug.seekLetter('S')",
+            "await window.__ustcerDebug.seekLetters(['U', 'C'])",
             'window.__ustcerDebug.playEnding()',
-            'window.__ustcerDebug.resetProgress()',
+            'await window.__ustcerDebug.resetProgress()',
         ];
         console.info(lines.join('\n'));
         return lines;
@@ -202,12 +210,12 @@ export function createDebugApi({
             playEnding();
             return { playing: true };
         },
-        resetProgress() {
+        async resetProgress() {
             assertIdle();
             hideAnswer();
             resetProgress();
             level.set(0);
-            reloadBoard({ fresh: true, prefetch: false });
+            await rerollBoard();
             return state();
         },
     };

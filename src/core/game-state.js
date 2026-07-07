@@ -20,6 +20,7 @@ export const TIMED_MODE_OPTIONS = [10, 20, 30, 45];
 // 挑战棋盘尺寸范围：上限由生成耗时实测确定（36×36 生成 ~4.4s，落在"加载约 5s"目标内）
 export const MIN_CHALLENGE_SIZE = 4;
 export const MAX_CHALLENGE_SIZE = 36;
+export const MAX_CHALLENGE_LETTER_AREA = 22 * 22;
 export const CLASSIC_UNLOCKS = {
     timed: 3.0,
     challenge: 3.7,
@@ -79,6 +80,12 @@ function hasEnabledChallengeClues(config) {
     return config.letters || config.colleges || config.pairs || config.roads;
 }
 
+export function challengeLettersSupported(config = {}) {
+    const width = Number(config.width) || DEFAULT_CHALLENGE_CONFIG.width;
+    const height = Number(config.height) || DEFAULT_CHALLENGE_CONFIG.height;
+    return width * height <= MAX_CHALLENGE_LETTER_AREA;
+}
+
 export function normalizeChallengeConfig(config = {}) {
     const normalized = {
         ...DEFAULT_CHALLENGE_CONFIG,
@@ -91,6 +98,9 @@ export function normalizeChallengeConfig(config = {}) {
         roads: config.roads !== false,
         difficulty: CHALLENGE_DIFFICULTIES[config.difficulty] ? config.difficulty : DEFAULT_CHALLENGE_CONFIG.difficulty,
     };
+    if (!challengeLettersSupported(normalized)) {
+        normalized.letters = false;
+    }
     if (!hasEnabledChallengeClues(normalized)) {
         normalized.colleges = true;
     }
@@ -193,7 +203,7 @@ export function challengeGenerationOptions(config) {
     const difficulty = CHALLENGE_DIFFICULTIES[config.difficulty] ?? CHALLENGE_DIFFICULTIES.standard;
     return {
         ...difficulty.generation,
-        letterMode: config.letters ? 'force' : 'none',
+        letterMode: config.letters && challengeLettersSupported(config) ? 'force' : 'none',
         requireAllLetterFamilies: false,
         forceLetterCount: 1,
         collegesEnabled: config.colleges,

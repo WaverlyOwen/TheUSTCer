@@ -4,6 +4,8 @@ import { isMobileDevice } from '../input/touch.js';
 import { createLetterTutorialSlides } from './letter-tutorial.js';
 import menuSlidesHtml from './menu-slides.html?raw';
 
+const MENU_CLOSE_MS = 500;
+
 // 规则卡片牌堆：拖动最上面一张甩到底部
 function control(slider) {
     const sliders = slider.children;
@@ -111,6 +113,8 @@ function control(slider) {
 // 帮助按钮开关规则菜单；打开时暂停移动端滑动画线，点击菜单外区域关闭
 export function setupMenu(button, swipeDetector, callbacks = {}) {
     let open = false;
+    let closing = false;
+    let closeTimer = null;
     const pressEvent = isMobileDevice() ? 'touchstart' : 'mousedown';
 
     function handleOut(event) {
@@ -128,7 +132,10 @@ export function setupMenu(button, swipeDetector, callbacks = {}) {
     }
 
     function close() {
-        swipeDetector?.addEventListener();
+        if (!open || closing) {
+            return;
+        }
+        closing = true;
 
         const slider = document.querySelector('.slider');
         const overlay = document.getElementById('dark-overlay');
@@ -137,20 +144,25 @@ export function setupMenu(button, swipeDetector, callbacks = {}) {
 
         if (overlay) {
             overlay.classList.remove('active');
-            setTimeout(() => {
-                if (!overlay.classList.contains('active')) {
-                    overlay.remove();
-                    document.querySelector('.slider')?.remove();
-                }
-            }, 500);
         }
 
         open = false;
         document.removeEventListener(pressEvent, handleOut);
-        callbacks.onClose?.();
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(() => {
+            closeTimer = null;
+            closing = false;
+            swipeDetector?.addEventListener();
+            callbacks.onClose?.();
+            slider?.remove();
+            overlay?.remove();
+        }, MENU_CLOSE_MS);
     }
 
     function show() {
+        if (open || closing) {
+            return;
+        }
         swipeDetector?.removeEventListener();
         callbacks.onOpen?.();
 

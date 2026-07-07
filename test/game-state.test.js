@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+    MAX_CHALLENGE_LETTER_AREA,
+    challengeLettersSupported,
     challengeGenerationOptions,
     formatDuration,
     normalizeChallengeConfig,
@@ -28,6 +30,21 @@ test('normalizeChallengeConfig keeps at least one clue family enabled', () => {
     assert.equal(config.difficulty, 'standard');
 });
 
+test('normalizeChallengeConfig disables letters when the board is too large', () => {
+    const config = normalizeChallengeConfig({
+        width: 23,
+        height: 22,
+        letters: true,
+        colleges: false,
+        pairs: true,
+        roads: false,
+    });
+
+    assert.equal(challengeLettersSupported(config), false);
+    assert.equal(config.width * config.height > MAX_CHALLENGE_LETTER_AREA, true);
+    assert.equal(config.letters, false);
+});
+
 test('challengeGenerationOptions follows clue toggles and difficulty', () => {
     const config = normalizeChallengeConfig({
         width: 12,
@@ -47,6 +64,20 @@ test('challengeGenerationOptions follows clue toggles and difficulty', () => {
     assert.equal(options.pairsMode, 'dense');
     assert.equal(options.roadsMode, 'off');
     assert.equal(options.localCoverageWindow, 3);
+});
+
+test('challengeGenerationOptions never advertises letters when size rules disallow them', () => {
+    const options = challengeGenerationOptions(normalizeChallengeConfig({
+        width: 24,
+        height: 24,
+        letters: true,
+        colleges: true,
+        pairs: false,
+        roads: false,
+        difficulty: 'standard',
+    }));
+
+    assert.equal(options.letterMode, 'none');
 });
 
 test('unlocks turn on in GPA threshold order', () => {

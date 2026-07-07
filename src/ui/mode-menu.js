@@ -3,6 +3,7 @@
 import {
     CHALLENGE_DIFFICULTIES,
     MAX_CHALLENGE_SIZE,
+    challengeLettersSupported,
     MIN_CHALLENGE_SIZE,
     MODE_CHALLENGE,
     MODE_CLASSIC,
@@ -48,10 +49,10 @@ function durationButtons(currentDuration) {
         .join('');
 }
 
-function toggleRow(name, checked, label, hint) {
+function toggleRow(name, checked, label, hint, disabled = false) {
     return `
         <label class="mode-toggle">
-            <input type="checkbox" name="${name}" ${checked ? 'checked' : ''}>
+            <input type="checkbox" name="${name}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
             <span>${label}</span>
             <small>${hint}</small>
         </label>
@@ -61,6 +62,7 @@ function toggleRow(name, checked, label, hint) {
 function render(state) {
     const timedButtonLabel = state.currentMode === MODE_TIMED ? '重新开始计时' : '进入计时模式';
     const challengeButtonLabel = state.currentMode === MODE_CHALLENGE ? '重新生成挑战' : '进入挑战模式';
+    const challengeLettersEnabled = challengeLettersSupported(state.challenge.config);
 
     return `
         <div class="mode-menu-backdrop"></div>
@@ -118,7 +120,7 @@ function render(state) {
                     </div>
                     <div class="mode-pill-row">${difficultyButtons(state.challenge.config.difficulty)}</div>
                     <div class="challenge-toggles">
-                        ${toggleRow('letters', state.challenge.config.letters, '字母题', '固定朝向的 U / S / T / C')}
+                        ${toggleRow('letters', state.challenge.config.letters, '字母题', '固定朝向的 U / S / T / C', !challengeLettersEnabled)}
                         ${toggleRow('colleges', state.challenge.config.colleges, '书院题', '区域里只能留一种颜色')}
                         ${toggleRow('pairs', state.challenge.config.pairs, '组别题', '红专并进 / 理实交融')}
                         ${toggleRow('roads', state.challenge.config.roads, '路名题', '必须穿过黑色路名')}
@@ -176,8 +178,9 @@ export function setupModeMenu(button, handlers) {
         if (!panel) {
             return;
         }
-        const config = handlers.getState().challenge?.config;
-        const note = handlers.getState().challenge?.note;
+        const state = handlers.getState();
+        const config = state.challenge?.config;
+        const note = state.challenge?.note;
         if (config) {
             const widthInput = panel.querySelector('input[name="width"]');
             const heightInput = panel.querySelector('input[name="height"]');
@@ -186,6 +189,10 @@ export function setupModeMenu(button, handlers) {
             for (const name of ['letters', 'colleges', 'pairs', 'roads']) {
                 const box = panel.querySelector(`input[name="${name}"]`);
                 if (box) box.checked = config[name];
+            }
+            const lettersBox = panel.querySelector('input[name="letters"]');
+            if (lettersBox) {
+                lettersBox.disabled = !challengeLettersSupported(config);
             }
         }
         const noteElement = panel.querySelector('.mode-note');
