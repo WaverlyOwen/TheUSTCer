@@ -19,14 +19,34 @@ function control(slider) {
     const Z_DIS = 50;
     const Y_DIS = 10;
     const TRANS_DUR = 0.4;
+    const FULL_OPAQUE_COUNT = 2;
+    const FADE_LAYER_COUNT = 3;
+
+    function opacityForDepth(depth) {
+        if (depth < FULL_OPAQUE_COUNT) {
+            return 1;
+        }
+        if (depth >= FULL_OPAQUE_COUNT + FADE_LAYER_COUNT) {
+            return 0;
+        }
+        const fadeIndex = depth - FULL_OPAQUE_COUNT + 1;
+        return 1 - fadeIndex / (FADE_LAYER_COUNT + 1);
+    }
+
+    function setSlideOpacity(slide, depth) {
+        slide.style.opacity = `${opacityForDepth(depth)}`;
+    }
 
     function init() {
         let z = 0;
         let y = 0;
+        let depth = 0;
         for (let i = sliders.length - 1; i >= 0; i--) {
             sliders[i].style.transform = `translateZ(${z}px) translateY(${y}px)`;
+            setSlideOpacity(sliders[i], depth);
             z -= Z_DIS;
             y += Y_DIS;
+            depth++;
         }
         attachEvents(sliders[sliders.length - 1]);
     }
@@ -57,6 +77,7 @@ function control(slider) {
 
         curSlide.style.transition = 'none';
         curSlide.style.transform = `translateX(${transX}px) rotateZ(${rotZ}deg) translateY(${transY}px)`;
+        setSlideOpacity(curSlide, 0);
 
         let j = 1;
         for (let i = sliders.length - 2; i >= 0; i--) {
@@ -64,6 +85,7 @@ function control(slider) {
             sliders[i].style.transform =
                 `translateX(${transX / (2 * j)}px) rotateZ(${rotZ / (2 * j)}deg)` +
                 ` translateY(${Y_DIS * j}px) translateZ(${-Z_DIS * j}px)`;
+            setSlideOpacity(sliders[i], j);
             j++;
         }
 
@@ -80,7 +102,6 @@ function control(slider) {
             setTimeout(() => {
                 slider.insertBefore(prevSlide, slider.firstChild);
                 prevSlide.style.transition = 'none';
-                prevSlide.style.opacity = '1';
                 slideMouseUp();
             }, 201);
         }
@@ -93,12 +114,14 @@ function control(slider) {
 
         curSlide.style.transition = `cubic-bezier(0,1.95,.49,.73) ${TRANS_DUR}s`;
         curSlide.style.transform = 'translateX(0px) rotateZ(0deg) translateY(0px)';
+        setSlideOpacity(curSlide, 0);
 
         let j = 1;
         for (let i = sliders.length - 2; i >= 0; i--) {
             sliders[i].style.transition = `cubic-bezier(0,1.95,.49,.73) ${TRANS_DUR / (j + 0.9)}s`;
             sliders[i].style.transform =
                 `translateX(0px) rotateZ(0deg) translateY(${Y_DIS * j}px) translateZ(${-Z_DIS * j}px)`;
+            setSlideOpacity(sliders[i], j);
             j++;
         }
 
