@@ -99,7 +99,9 @@
     border-radius: 1.5vh;
     border: 0.6vh double #c9a227;
     box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.5);
-    max-width: min(80vw, 56vh);
+    width: min(56vh, calc(100vw - 40px));
+    max-width: min(56vh, calc(100vw - 40px));
+    box-sizing: border-box;
 }
 
 .ending-certificate.show {
@@ -155,6 +157,7 @@
     display: flex;
     justify-content: center;
     gap: 2vh;
+    flex-wrap: wrap;
 }
 
 .certificate-buttons button {
@@ -183,7 +186,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0.92);
-    width: min(84vw, 54vh);
+    width: min(54vh, calc(100vw - 40px));
     padding: 3.2vh 3.4vh;
     border-radius: 1.4vh;
     background: rgba(255, 252, 244, 0.97);
@@ -191,6 +194,7 @@
     box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.35);
     text-align: center;
     transition: transform 0.3s ease;
+    box-sizing: border-box;
 }
 
 .milestone-overlay.active .milestone-panel {
@@ -241,4 +245,62 @@
 
 .milestone-panel.rose .milestone-title {
     color: #b04663;
+}
+
+@media (max-width: 720px) {
+    .ending-gpa {
+        top: 29%;
+        padding-inline: 18px;
+        box-sizing: border-box;
+        font-size: min(8vh, 16vw);
+    }
+
+    .ending-gpa.lifted {
+        top: max(4vh, 22px);
+        font-size: min(3.8vh, 7.2vw);
+        padding-inline: 20px;
+    }
+
+    .ending-skip {
+        bottom: max(2.4vh, 16px);
+        padding-inline: 18px;
+        box-sizing: border-box;
+        font-size: min(1.8vh, 3.8vw);
+    }
+
+    .ending-certificate {
+        width: calc(100vw - 24px);
+        max-width: calc(100vw - 24px);
+        padding: 24px 18px 20px;
+        border-width: 3px;
+        border-radius: 16px;
+    }
+
+    .certificate-title {
+        letter-spacing: 0.12em;
+    }
+
+    .certificate-buttons {
+        gap: 10px;
+    }
+
+    .certificate-buttons button {
+        flex: 1 1 100%;
+        width: 100%;
+        min-height: 42px;
+        box-sizing: border-box;
+    }
+
+    .milestone-panel {
+        width: calc(100vw - 24px);
+        padding: 22px 18px 18px;
+        border-width: 2px;
+        border-radius: 16px;
+    }
+
+    .milestone-button {
+        width: 100%;
+        min-height: 42px;
+        box-sizing: border-box;
+    }
 }

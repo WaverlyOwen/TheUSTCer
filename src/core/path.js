@@ -2,6 +2,9 @@
 
 // 方向编码：0 右(+x) 1 下(+y) 2 左(-x) 3 上(-y)
 const DIRECTIONS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+// headArcSafe 用的 8 邻域环（循环序）
+const ARC_RING_X = [1, 1, 0, -1, -1, -1, 0, 1];
+const ARC_RING_Y = [0, 1, 1, 1, 0, -1, -1, -1];
 
 export function movePoint(position, direction, length) {
     return [
@@ -43,6 +46,28 @@ export class Path {
         this.bfsVisited = new Int32Array((w + 1) * (h + 1));
         this.bfsQueue = new Int32Array((w + 1) * (h + 1));
         this.bfsStamp = 0;
+        // 禁边守护区：禁边端点的切比雪夫距离 ≤1 邻域内，弧检查失效（连通性不再只由节点占用决定）
+        this.guardNodes = null;
+        if (blockedEdges) {
+            this.guardNodes = new Uint8Array((w + 1) * (h + 1));
+            for (const key of blockedEdges) {
+                const nodeA = key >> 1;
+                const nodeB = (key & 1) === 0 ? nodeA + this.stride : nodeA + 1;
+                for (const node of [nodeA, nodeB]) {
+                    const nx = (node / this.stride) | 0;
+                    const ny = node % this.stride;
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            const gx = nx + dx;
+                            const gy = ny + dy;
+                            if (gx >= 0 && gx <= w && gy >= 0 && gy <= h) {
+                                this.guardNodes[this.index(gx, gy)] = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     index(x, y) {
@@ -126,6 +151,46 @@ export class Path {
         while (this.distance) {
             this.back();
         }
+    }
+
+    // 头部落点的局部安全判定：看 8 邻域环上的"空闲弧"是否连续。
+    // 空闲环连续（≤1 段）⇒ 占用当前头部不会把自由区切成两半，可跳过全盘 BFS；
+    // 环上相邻两格互为正交邻居，故连续空闲弧内的节点两两连通，头部不是割点。
+    // 返回 false 只表示"可能分裂"，需要调用方回退到 reach() 复核（保守正确）。
+    headArcSafe() {
+        if (this.guardNodes && this.guardNodes[this.index(this.x, this.y)]) {
+            return false;
+        }
+        const [w, h] = this.size;
+        const x = this.x;
+        const y = this.y;
+        // 8 邻域环，循环序
+        let freeCount = 0;
+        let arcs = 0;
+        let prevFree = false;
+        let firstFree = false;
+        for (let i = 0; i < 8; i++) {
+            const nx = x + ARC_RING_X[i];
+            const ny = y + ARC_RING_Y[i];
+            const free = nx >= 0 && nx <= w && ny >= 0 && ny <= h &&
+                !this.map[nx * this.stride + ny];
+            if (free) {
+                freeCount++;
+                if (!prevFree) {
+                    arcs++;
+                }
+            }
+            if (i === 0) {
+                firstFree = free;
+            }
+            prevFree = free;
+        }
+        // 环首尾相接：首尾都空闲时少算了一次合并
+        if (firstFree && prevFree && arcs > 1) {
+            arcs--;
+        }
+        // 无空闲邻居 = 死胡同（目标必不可达），交给 BFS 判死
+        return freeCount > 0 && arcs <= 1;
     }
 
     // 当前头部是否仍能到达目标节点（默认终点 (W, H)），不被已画路径/禁边切断

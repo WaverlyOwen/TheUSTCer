@@ -27,6 +27,7 @@ import {
     saveClassicRun,
     saveTimedDuration,
     saveUnlocks,
+    shouldBlockInteraction,
     timedSession,
     unlocksForLevel,
     challengeLettersSupported,
@@ -123,6 +124,8 @@ async function startGame() {
     let generating = false;
     let generationTicket = 0;
     let resizeTimer = null;
+    let endingVisible = false;
+    let endingPromise = null;
 
     function saveClassic() {
         if (persistClassic) {
@@ -201,6 +204,32 @@ async function startGame() {
         }
     }
 
+    function setEndingVisible(nextVisible) {
+        if (endingVisible === nextVisible) {
+            return;
+        }
+        endingVisible = nextVisible;
+        if (nextVisible) {
+            pushPause();
+        } else {
+            popPause();
+        }
+        renderHud();
+    }
+
+    function playClassicEndingOverlay() {
+        if (endingPromise) {
+            return endingPromise;
+        }
+        endingPromise = playEnding({
+            onVisibilityChange: setEndingVisible,
+        }).finally(() => {
+            endingPromise = null;
+            setEndingVisible(false);
+        });
+        return endingPromise;
+    }
+
     function timedRemainingMs(now = Date.now()) {
         if (!timedRun) {
             return timedDuration * 60_000;
@@ -275,10 +304,13 @@ async function startGame() {
     }
 
     function isInteractionBlocked() {
-        return transitionBusy ||
-            generating ||
-            classicCompleted() && currentMode === MODE_CLASSIC ||
-            currentMode === MODE_TIMED && Boolean(timedRun?.ended);
+        return shouldBlockInteraction({
+            transitionBusy,
+            generating,
+            currentMode,
+            timedEnded: Boolean(timedRun?.ended),
+            endingVisible,
+        });
     }
 
     function refreshPanels() {
@@ -538,7 +570,8 @@ async function startGame() {
 
         if (currentMode === MODE_CLASSIC) {
             classicRun.level++;
-            if (classicCompleted() && classicRun.finishedAt === null) {
+            const reachedCapThisWin = classicCompleted() && classicRun.finishedAt === null;
+            if (reachedCapThisWin) {
                 classicRun.finishedAt = Date.now();
             }
             saveClassic();
@@ -547,21 +580,17 @@ async function startGame() {
             refreshPanels();
 
             setTimeout(async () => {
-                if (classicCompleted()) {
-                    transitionBusy = false;
-                    refreshPanels();
-                    showReplayButton();
-                    if (!load(ENDING_SEEN_KEY, false)) {
-                        save(ENDING_SEEN_KEY, true);
-                        playEnding();
-                    }
-                    return;
-                }
-
                 await newBoard();
                 refreshPanels();
                 if (newlyUnlocked.length) {
                     await playUnlockCelebrations(newlyUnlocked);
+                }
+                if (classicCompleted()) {
+                    showReplayButton(playClassicEndingOverlay);
+                    if (reachedCapThisWin && !load(ENDING_SEEN_KEY, false)) {
+                        save(ENDING_SEEN_KEY, true);
+                        await playClassicEndingOverlay();
+                    }
                 }
                 transitionBusy = false;
                 renderHud();
@@ -735,7 +764,7 @@ async function startGame() {
     });
 
     if (load(ENDING_SEEN_KEY, false)) {
-        showReplayButton();
+        showReplayButton(playClassicEndingOverlay);
     }
 
     if (import.meta.env.DEV) {

@@ -5,13 +5,18 @@ import test from 'node:test';
 
 import {
     MAX_CHALLENGE_LETTER_AREA,
+    TIMED_START_LEVEL,
     challengeLettersSupported,
     challengeGenerationOptions,
     formatDuration,
+    MODE_CLASSIC,
+    MODE_TIMED,
     normalizeChallengeConfig,
+    shouldBlockInteraction,
+    timedSession,
     unlocksForLevel,
 } from '../src/core/game-state.js';
-import { gpaValueForLevel } from '../src/core/level.js';
+import { gpaValueForLevel, sizeForLevel } from '../src/core/level.js';
 
 test('normalizeChallengeConfig keeps at least one clue family enabled', () => {
     const config = normalizeChallengeConfig({
@@ -103,4 +108,27 @@ test('unlocks turn on in GPA threshold order', () => {
 test('formatDuration supports mm:ss and hh:mm:ss output', () => {
     assert.equal(formatDuration(125000, false), '02:05');
     assert.equal(formatDuration(3723000), '01:02:03');
+});
+
+test('classic completion only blocks input while the ending overlay is visible', () => {
+    assert.equal(shouldBlockInteraction({
+        currentMode: MODE_CLASSIC,
+        endingVisible: false,
+    }), false);
+    assert.equal(shouldBlockInteraction({
+        currentMode: MODE_CLASSIC,
+        endingVisible: true,
+    }), true);
+    assert.equal(shouldBlockInteraction({
+        currentMode: MODE_TIMED,
+        timedEnded: true,
+    }), true);
+});
+
+test('timed mode starts from the 3x3 board tier', () => {
+    const run = timedSession(10);
+
+    assert.equal(run.level, TIMED_START_LEVEL);
+    assert.deepEqual(sizeForLevel(run.level), [3, 3]);
+    assert.equal(run.cleared, 0);
 });

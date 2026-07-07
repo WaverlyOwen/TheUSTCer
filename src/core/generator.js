@@ -8,9 +8,13 @@ import { placementsByLetter, compatiblePlacements } from './letters.js';
 // 类型编码见 docs/reference.txt：7~10 书院，11 红专，12 理实，14 USTC 字母区块
 const TYPE_SCALE = [2, 2, 2, 4, 4, 11, 11, 1, 3, 5, 5, 2, 2, 5, 4];
 const SIGN_RATE = 0.7;
-const LETTER_ATTEMPTS = 128;
+const LETTER_ATTEMPTS = 48;
 const LETTER_CANDIDATE_LIMIT = 8;
+// 每个字母组合最多收集这么多合格候选就换下一个组合；组合间均匀抽签保证字母均衡
+const LETTER_CANDIDATES_PER_PLAN = 2;
 const LOCAL_COVERAGE_WINDOW = 3;
+const MOVE_DX = [1, 0, -1, 0];
+const MOVE_DY = [0, 1, 0, -1];
 
 const DEFAULT_GENERATION_OPTIONS = {
     letterMode: 'balanced', // balanced | force | none
@@ -31,15 +35,24 @@ const DEFAULT_GENERATION_OPTIONS = {
     mutationMinimumCoverage: 0.34,
     minimumPrefixSteps: 6,
     minimumTailSteps: 10,
-    mutationTargetWindows: 3,
-    mutationCutSamples: 6,
-    mutationWaypointSamples: 8,
+    // 单次变异 = 目标窗口 × 切点 × 途经点 次重排游走，乘积别超过 ~40（重排是最贵的操作）
+    mutationTargetWindows: 2,
+    mutationCutSamples: 4,
+    mutationWaypointSamples: 5,
     normalCandidateAttempts: 40,
     normalCandidateLimit: 5,
     difficultyValue: null,
     // 单局生成时间预算（ms）：超时后逐级放宽质控接受最好候选，杜绝大盘假死
     generationBudgetMs: 5000,
 };
+
+function pushTopEntries(entries, entry, limit) {
+    entries.push(entry);
+    entries.sort((a, b) => b.score - a.score);
+    if (entries.length > limit) {
+        entries.length = limit;
+    }
+}
 
 // 难度系数：0（新手）→ 1（level 60+）
 function difficulty(level) {
@@ -66,15 +79,24 @@ function createGenerationSettings(level, options = {}) {
     return settings;
 }
 
-// 随机游走（原引擎）：偏向直行，每步用 reach 保证不把 target 走死。
+// 随机游走（原引擎）：偏向直行，保证不把 target 走死。
 // state.last 记录上一步方向，跨段延续手感。
-function walkTo(path, target, state) {
+// 防死路检查两级：headArcSafe 的 O(1) 局部弧检查放行绝大多数步（开阔地带占用头部
+// 不可能切断自由区），只有"可能分裂"时才做全盘 BFS —— needVerify 记录上一步是否
+// 留下了分裂嫌疑（嫌疑存在时目标可能落在另一半，下一步必须 BFS 复核后才能清除）。
+// alsoKeep：途经点腿必须同时守护最终终点——只守护当前途经点时，游走会把自己和
+// 途经点一起封进小口袋（守护条件全程满足！），随后所有腿包括终点腿全部不可达。
+function walkTo(path, target, state, alsoKeep = null) {
     const turnRate = 0.8;
-    if (!path.reach(target[0], target[1])) {
+    const keepReachable = () =>
+        path.reach(target[0], target[1]) &&
+        (!alsoKeep || path.reach(alsoKeep[0], alsoKeep[1]));
+    if (!keepReachable()) {
         return false;
     }
     const cap = (path.size[0] + 1) * (path.size[1] + 1) * 8;
     let steps = 0;
+    let needVerify = true;
 
     while (path.x !== target[0] || path.y !== target[1]) {
         if (++steps > cap) {
@@ -95,7 +117,14 @@ function walkTo(path, target, state) {
         let stepped = false;
         for (const now of directions) {
             if (path.step(now)) {
-                if (path.reach(target[0], target[1])) {
+                const arcSafe = path.headArcSafe();
+                if (arcSafe && !needVerify) {
+                    state.last = now;
+                    stepped = true;
+                    break;
+                }
+                if (keepReachable()) {
+                    needVerify = !arcSafe;
                     state.last = now;
                     stepped = true;
                     break;
@@ -110,9 +139,72 @@ function walkTo(path, target, state) {
     return true;
 }
 
-function generateAnswer(size) {
+// 蛇形分区途经点：把节点网格切成 ~4 节点宽的分区，蛇形顺序在每个分区里取一个
+// 随机节点。基础游走由此获得"全盘扫掠"骨架——大盘不再出巨型空区（旧算法在大盘
+// 反复被质控拒绝、把预算烧在变异修补上的根源），路径观感也更蜿蜒有趣。
+// skipRate 按目标覆盖率反推：全扫的路径长约等于节点数，跳过率 ≈ 1 - 目标覆盖，
+// 这样扫掠"稀疏但均匀地铺满全盘"，而不是致密地铺一半就被长度封顶截断（尾部成大空区）。
+function sectorWaypoints(size, t) {
+    const [w, h] = size;
+    const sector = 4;
+    const cols = Math.max(1, Math.round((w + 1) / sector));
+    const rows = Math.max(1, Math.round((h + 1) / sector));
+    const colWidth = (w + 1) / cols;
+    const rowHeight = (h + 1) / rows;
+    const coverageTarget = 0.45 + 0.25 * t;
+    const skipRate = Math.min(0.55, Math.max(0.25, 1 - coverageTarget * 0.9));
+    const transpose = Math.random() < 0.5;
+    const outer = transpose ? rows : cols;
+    const inner = transpose ? cols : rows;
+    const waypoints = [];
+
+    // 不许连跳：扫描序相邻、或相邻带同位置的两个分区都空缺，
+    // 会留下超过质控窗口（5×5）的空洞，直接废掉候选
+    let skippedPrevious = false;
+    const skippedInBand = new Array(inner).fill(false);
+    for (let a = 0; a < outer; a++) {
+        for (let pass = 0; pass < inner; pass++) {
+            const b = a % 2 === 0 ? pass : inner - 1 - pass;
+            if (!skippedPrevious && !skippedInBand[b] && Math.random() < skipRate) {
+                skippedPrevious = true;
+                skippedInBand[b] = true;
+                continue;
+            }
+            skippedPrevious = false;
+            skippedInBand[b] = false;
+            const col = transpose ? b : a;
+            const row = transpose ? a : b;
+            const x = Math.min(w, Math.floor(col * colWidth + Math.random() * colWidth));
+            const y = Math.min(h, Math.floor(row * rowHeight + Math.random() * rowHeight));
+            waypoints.push([x, y]);
+        }
+    }
+    return waypoints;
+}
+
+function generateAnswer(size, settings = null) {
     const path = new Path(size);
     const state = { last: Math.floor(Math.random() * 2) };
+    // 小盘自由游走已足够；大盘用途经点引导（单点失败跳过，尽力而为）。
+    // 引导阶段按目标覆盖率封顶：扫得太满会把自由空间搅成碎迷宫，
+    // 后续每步都要 BFS 且大量回退，单次游走可能失控到数十秒
+    if (settings && size[0] * size[1] > 120) {
+        const nodes = (size[0] + 1) * (size[1] + 1);
+        const coverageTarget = 0.45 + 0.25 * settings.difficultyValue;
+        // 上限是防"碎迷宫失控"的保险丝，不是密度控制（密度由 skipRate 决定）——
+        // 设得太紧会把蛇形截断在尾带之前，留下大空白被质控拒绝
+        const guideLimit = Math.floor(nodes * Math.min(0.8, coverageTarget * 1.2));
+        for (const waypoint of sectorWaypoints(size, settings.difficultyValue)) {
+            if (path.distance >= guideLimit ||
+                (settings.deadlineAt && Date.now() > settings.deadlineAt)) {
+                break;
+            }
+            if (path.map[path.index(waypoint[0], waypoint[1])]) {
+                continue;
+            }
+            walkTo(path, waypoint, state, [size[0], size[1]]);
+        }
+    }
     if (!walkTo(path, [size[0], size[1]], state)) {
         return null;
     }
@@ -144,11 +236,12 @@ function randomFreeNode(path) {
 }
 
 // 途经一个随机空闲节点（尽力而为）：直奔目标的路径覆盖率太低，
-// 会留下超大空区，游荡途经点让字母题的区域划分接近普通题
-function wander(path, state) {
+// 会留下超大空区，游荡途经点让字母题的区域划分接近普通题。
+// alsoKeep 由调用方决定：字母题生成期间保留链会临时圈住终点角，不能守护终点
+function wander(path, state, alsoKeep = null) {
     const waypoint = randomFreeNode(path);
     if (waypoint) {
-        walkTo(path, waypoint, state);
+        walkTo(path, waypoint, state, alsoKeep);
     }
 }
 
@@ -173,8 +266,11 @@ function generateAnswerWithLetters(size, placements) {
             : [...placement.chainNodes].reverse();
         const entry = nodes[0];
 
-        wander(path, state);
+        // 注意：保留中的链可能临时把终点角围住（属正常布局），这里不能守护终点；
+        // 但游荡至少要守护马上要去的链入口，否则一半的尝试死在"荡完就进不去"上。
+        // 被链圈死终点的罕见死局靠上层重试兜住
         path.releaseNodes([entry]);
+        wander(path, state, entry);
         if (!walkTo(path, entry, state)) {
             return null;
         }
@@ -190,7 +286,7 @@ function generateAnswerWithLetters(size, placements) {
     // 字母链全部走完后，尾部允许做局部变异；前段保留字母结构。
     path.mutationMinCut = path.distance;
 
-    wander(path, state);
+    wander(path, state, [size[0], size[1]]);
     if (!walkTo(path, [size[0], size[1]], state)) {
         return null;
     }
@@ -200,83 +296,143 @@ function generateAnswerWithLetters(size, placements) {
 
 function markTouchedCells(touched, x, y, size) {
     if (x >= 0 && x < size[0] && y >= 0 && y < size[1]) {
-        touched[x][y] = true;
+        touched[x * size[1] + y] = 1;
     }
 }
 
 function createTouchMap(answer, size) {
-    const touched = Array.from({ length: size[0] }, () => Array(size[1]).fill(false));
-    let position = [0, 0];
+    if (answer.touchMap &&
+        answer.touchMapWidth === size[0] &&
+        answer.touchMapHeight === size[1]) {
+        return answer.touchMap;
+    }
+
+    const touched = new Uint8Array(size[0] * size[1]);
+    let x = 0;
+    let y = 0;
 
     for (const move of answer.queue) {
-        const next = movePoint(position, move, 1);
+        const nextX = x + MOVE_DX[move];
+        const nextY = y + MOVE_DY[move];
         if (move === 0 || move === 2) {
-            const edgeX = Math.min(position[0], next[0]);
-            const edgeY = position[1];
+            const edgeX = Math.min(x, nextX);
+            const edgeY = y;
             markTouchedCells(touched, edgeX, edgeY - 1, size);
             markTouchedCells(touched, edgeX, edgeY, size);
         } else {
-            const edgeX = position[0];
-            const edgeY = Math.min(position[1], next[1]);
+            const edgeX = x;
+            const edgeY = Math.min(y, nextY);
             markTouchedCells(touched, edgeX - 1, edgeY, size);
             markTouchedCells(touched, edgeX, edgeY, size);
         }
-        position = next;
+        x = nextX;
+        y = nextY;
     }
 
+    answer.touchMap = touched;
+    answer.touchMapWidth = size[0];
+    answer.touchMapHeight = size[1];
     return touched;
 }
 
-function analyzeLocalCoverage(answer, size, window = LOCAL_COVERAGE_WINDOW) {
+function createTouchPrefix(answer, size) {
+    if (answer.touchPrefix &&
+        answer.touchPrefixWidth === size[0] &&
+        answer.touchPrefixHeight === size[1]) {
+        return answer.touchPrefix;
+    }
+
+    const [w, h] = size;
+    const stride = h + 1;
+    const touched = createTouchMap(answer, size);
+    const prefix = new Uint16Array((w + 1) * (h + 1));
+
+    for (let x = 1; x <= w; x++) {
+        let rowSum = 0;
+        for (let y = 1; y <= h; y++) {
+            rowSum += touched[(x - 1) * h + (y - 1)];
+            prefix[x * stride + y] = prefix[(x - 1) * stride + y] + rowSum;
+        }
+    }
+
+    answer.touchPrefix = prefix;
+    answer.touchPrefixWidth = w;
+    answer.touchPrefixHeight = h;
+    return prefix;
+}
+
+function analyzeLocalCoverage(answer, size, window = LOCAL_COVERAGE_WINDOW, weakestLimit = 0) {
     const [w, h] = size;
     if (w < window || h < window) {
         return {
             window,
             blankWindows: 0,
             minTouches: window * window,
-            weakestWindows: [],
+            weakestWindows: weakestLimit ? [] : undefined,
             averageTouches: window * window,
         };
     }
 
-    const touched = createTouchMap(answer, size);
-    const windows = [];
+    if (weakestLimit === 0) {
+        answer.coverageCache ??= new Map();
+        const cached = answer.coverageCache.get(window);
+        if (cached) {
+            return cached;
+        }
+    }
+
+    const stride = h + 1;
+    const prefix = createTouchPrefix(answer, size);
+    const weakestWindows = weakestLimit ? [] : null;
     let blankWindows = 0;
     let minTouches = Infinity;
     let touchSum = 0;
+    let windowCount = 0;
+
+    const readWindowTouches = (startX, startY) => {
+        const endX = startX + window;
+        const endY = startY + window;
+        return prefix[endX * stride + endY] -
+            prefix[startX * stride + endY] -
+            prefix[endX * stride + startY] +
+            prefix[startX * stride + startY];
+    };
 
     for (let startX = 0; startX <= w - window; startX++) {
         for (let startY = 0; startY <= h - window; startY++) {
-            let touches = 0;
-            for (let x = startX; x < startX + window; x++) {
-                for (let y = startY; y < startY + window; y++) {
-                    if (touched[x][y]) {
-                        touches++;
-                    }
-                }
-            }
+            const touches = readWindowTouches(startX, startY);
+            windowCount++;
             touchSum += touches;
             minTouches = Math.min(minTouches, touches);
             if (!touches) {
                 blankWindows++;
             }
-            windows.push({
-                x: startX,
-                y: startY,
-                touches,
-                center: [startX + window / 2, startY + window / 2],
-            });
+            if (weakestLimit) {
+                weakestWindows.push({
+                    x: startX,
+                    y: startY,
+                    touches,
+                    center: [startX + window / 2, startY + window / 2],
+                });
+                weakestWindows.sort((a, b) => a.touches - b.touches);
+                if (weakestWindows.length > weakestLimit) {
+                    weakestWindows.length = weakestLimit;
+                }
+            }
         }
     }
 
-    windows.sort((a, b) => a.touches - b.touches);
-    return {
+    const result = {
         window,
         blankWindows,
         minTouches,
-        weakestWindows: windows,
-        averageTouches: touchSum / windows.length,
+        weakestWindows: weakestLimit ? weakestWindows : undefined,
+        averageTouches: touchSum / windowCount,
     };
+    if (weakestLimit === 0) {
+        answer.coverageCache.set(window, result);
+    }
+    return result;
 }
 
 // 质控指标：任意滑动 4x4 方块中都至少要碰到一段答案线，避免大块空区。
@@ -284,13 +440,24 @@ export function hasLocalLineCoverage(answer, size, window = LOCAL_COVERAGE_WINDO
     return analyzeLocalCoverage(answer, size, window).blankWindows === 0;
 }
 
-// 区域划分质量检查：区域够多、没有孤格或占半盘的巨区
-function validAnswer(answer, size, settings) {
+function coverageProfile(answer, size, settings) {
+    const coarse = analyzeLocalCoverage(answer, size, settings.localCoverageWindow);
+    const dense = settings.mutationWindow === settings.localCoverageWindow
+        ? coarse
+        : analyzeLocalCoverage(answer, size, settings.mutationWindow);
+    return { coarse, dense };
+}
+
+// 区域划分质量检查：区域够多、没有孤格或占半盘的巨区。
+// 区域数下限要封顶：√(cells/2) 在大盘上会涨到 20+，而打分目标才 8 个区域，
+// 扫掠型路径天然十几个区域，不封顶会把所有大盘候选无差别拒掉
+function validAnswer(answer, size, settings, profile = coverageProfile(answer, size, settings)) {
     const cells = size[0] * size[1];
-    if (!hasLocalLineCoverage(answer, size, settings.localCoverageWindow)) {
+    if (profile.coarse.blankWindows > 0) {
         return false;
     }
-    if (answer.group.length < Math.sqrt(cells / 2) && Math.sqrt(cells) > 3) {
+    const minGroups = Math.min(Math.sqrt(cells / 2), 12);
+    if (answer.group.length < minGroups && Math.sqrt(cells) > 3) {
         return false;
     }
     for (const member of answer.group) {
@@ -301,25 +468,48 @@ function validAnswer(answer, size, settings) {
     return true;
 }
 
-// 难度打分：路径覆盖率与区域数越贴近该关卡的目标越好
-function scoreAnswer(answer, size, t, settings) {
+function turnRatio(answer) {
+    if (answer.turnRatioCache !== undefined) {
+        return answer.turnRatioCache;
+    }
+    let turns = 0;
+    for (let i = 1; i < answer.queue.length; i++) {
+        if (answer.queue[i] !== answer.queue[i - 1]) {
+            turns++;
+        }
+    }
+    answer.turnRatioCache = answer.queue.length > 1 ? turns / (answer.queue.length - 1) : 0;
+    return answer.turnRatioCache;
+}
+
+// 难度打分：路径覆盖率与区域数越贴近该关卡的目标越好；
+// 绕度（转弯占比）向随难度上升的目标靠拢——长直线走廊单调，全是急弯又噪
+function scoreAnswer(answer, size, t, settings, profile = coverageProfile(answer, size, settings)) {
     const nodes = (size[0] + 1) * (size[1] + 1);
     const coverage = answer.distance / nodes;
     const coverageTarget = 0.45 + 0.25 * t;
     const cells = size[0] * size[1];
     const groupTarget = Math.min(8, Math.max(2, cells / 5));
-    const local = analyzeLocalCoverage(answer, size, settings.localCoverageWindow);
+    const largestGroupRatio = Math.max(...answer.group) / cells;
+    const turnTarget = 0.35 + 0.2 * t;
+    const local = profile.coarse;
+    const dense = profile.dense;
     return -(Math.abs(coverage - coverageTarget) * 3 +
         Math.abs(answer.group.length - groupTarget) / groupTarget) +
         local.minTouches * 0.18 -
-        local.blankWindows * 5;
+        local.blankWindows * 5 +
+        dense.minTouches * 0.24 +
+        dense.averageTouches * 0.025 -
+        dense.blankWindows * 2.6 -
+        largestGroupRatio * 1.15 -
+        Math.abs(turnRatio(answer) - turnTarget) * 1.4;
 }
 
 // 字母题的放宽过滤：强制链走向让区域分布天然不如自由游走均匀，
 // 只挡明显劣质盘（巨型空区/区域过少），孤格转为打分惩罚
-function validLetterAnswer(answer, size, settings) {
+function validLetterAnswer(answer, size, settings, profile = coverageProfile(answer, size, settings)) {
     const cells = size[0] * size[1];
-    if (!hasLocalLineCoverage(answer, size, settings.localCoverageWindow)) {
+    if (profile.coarse.blankWindows > 0) {
         return false;
     }
     if (answer.group.length < 3) {
@@ -333,17 +523,18 @@ function validLetterAnswer(answer, size, settings) {
     return true;
 }
 
-function scoreLetterAnswer(answer, size, t, settings) {
+function scoreLetterAnswer(answer, size, t, settings, profile = coverageProfile(answer, size, settings)) {
     const singletons = answer.group.filter(member => member === 1).length;
-    return scoreAnswer(answer, size, t, settings) - singletons * 0.15;
+    return scoreAnswer(answer, size, t, settings, profile) - singletons * 0.15;
 }
 
 function needsRefinement(answer, size, settings) {
     const nodes = (size[0] + 1) * (size[1] + 1);
     const coverage = answer.distance / nodes;
-    const local = analyzeLocalCoverage(answer, size, settings.localCoverageWindow);
-    return local.blankWindows > 0 ||
-        local.minTouches < settings.mutationMinTouches ||
+    const profile = coverageProfile(answer, size, settings);
+    return profile.coarse.blankWindows > 0 ||
+        profile.dense.blankWindows > 0 ||
+        profile.coarse.minTouches < settings.mutationMinTouches ||
         coverage < settings.mutationMinimumCoverage;
 }
 
@@ -402,7 +593,7 @@ function pickWaypoints(path, targetWindow, size, settings) {
 
     for (let x = minX; x <= maxX; x++) {
         for (let y = minY; y <= maxY; y++) {
-            if ((x === 0 && y === 0) || (x === w + 1 && y === h)) {
+            if ((x === 0 && y === 0) || (x === w && y === h)) {
                 continue;
             }
             if (x === path.x && y === path.y) {
@@ -422,8 +613,8 @@ function pickWaypoints(path, targetWindow, size, settings) {
 }
 
 function mutateAnswer(answer, size, t, settings) {
-    const coverage = analyzeLocalCoverage(answer, size, settings.mutationWindow);
-    const targetWindows = coverage.weakestWindows.slice(0, settings.mutationTargetWindows)
+    const coverage = analyzeLocalCoverage(answer, size, settings.mutationWindow, settings.mutationTargetWindows);
+    const targetWindows = coverage.weakestWindows
         .map(window => ({ ...window, window: coverage.window }));
     if (!targetWindows.length) {
         return answer;
@@ -433,8 +624,14 @@ function mutateAnswer(answer, size, t, settings) {
     let bestScore = scoreAnswer(answer, size, t, settings);
 
     for (const targetWindow of targetWindows) {
+        if (settings.deadlineAt && Date.now() > settings.deadlineAt) {
+            break;
+        }
         const cutCandidates = pickCutCandidates(answer, targetWindow, settings);
         for (const cut of cutCandidates) {
+            if (settings.deadlineAt && Date.now() > settings.deadlineAt) {
+                break;
+            }
             const prefixQueue = answer.queue.slice(0, cut.index);
             const prefixPath = replayPath(size, prefixQueue, answer.blockedEdges);
             if (!prefixPath) {
@@ -451,7 +648,7 @@ function mutateAnswer(answer, size, t, settings) {
                     last: prefixQueue.length ? prefixQueue[prefixQueue.length - 1] : Math.floor(Math.random() * 2),
                 };
                 if (!(path.x === waypoint[0] && path.y === waypoint[1]) &&
-                    !walkTo(path, waypoint, state)) {
+                    !walkTo(path, waypoint, state, [size[0], size[1]])) {
                     continue;
                 }
                 wander(path, state);
@@ -475,6 +672,9 @@ function mutateAnswer(answer, size, t, settings) {
 function refineCandidate(answer, size, t, settings) {
     let current = answer;
     for (let pass = 0; pass < settings.mutationPasses; pass++) {
+        if (settings.deadlineAt && Date.now() > settings.deadlineAt) {
+            break;
+        }
         if (!needsRefinement(current, size, settings)) {
             break;
         }
@@ -530,7 +730,7 @@ function collectLetterCandidates(size, plans, byLetter, settings, deadline) {
     let attemptsRemaining = LETTER_ATTEMPTS;
 
     for (const plan of plans) {
-        if (!attemptsRemaining || candidates.length >= LETTER_CANDIDATE_LIMIT || Date.now() > deadline) {
+        if (!attemptsRemaining || Date.now() > deadline) {
             break;
         }
 
@@ -545,8 +745,10 @@ function collectLetterCandidates(size, plans, byLetter, settings, deadline) {
         }
 
         const budget = Math.min(planBudget, attemptsRemaining);
-        for (let attempt = 0; attempt < budget && candidates.length < LETTER_CANDIDATE_LIMIT; attempt++) {
-            if (Date.now() > deadline) {
+        let collectedForPlan = 0;
+        for (let attempt = 0; attempt < budget; attempt++) {
+            // 单组合攒够就换下一个组合：既省预算，又保证多个字母组合都有候选可供均匀抽签
+            if (collectedForPlan >= LETTER_CANDIDATES_PER_PLAN || Date.now() > deadline) {
                 break;
             }
             attemptsRemaining--;
@@ -556,8 +758,14 @@ function collectLetterCandidates(size, plans, byLetter, settings, deadline) {
                 continue;
             }
             const refined = refineCandidate(candidate, size, settings.difficultyValue, settings);
-            if (validLetterAnswer(refined, size, settings)) {
-                candidates.push({ candidate: refined, chosen });
+            const profile = coverageProfile(refined, size, settings);
+            if (validLetterAnswer(refined, size, settings, profile)) {
+                collectedForPlan++;
+                pushTopEntries(candidates, {
+                    candidate: refined,
+                    chosen,
+                    score: scoreLetterAnswer(refined, size, settings.difficultyValue, settings, profile),
+                }, LETTER_CANDIDATE_LIMIT);
             }
         }
     }
@@ -632,21 +840,38 @@ function fillSigns(answer, size, t, letters, settings) {
 
     // remaining 作为组内格子的倒计数，标记红专/理实落在组内第几个格子上
     const remaining = answer.group.slice();
+    const groupClueCount = new Array(answer.group.length).fill(0);
+    const groupCells = answer.group.map(() => []);
     for (let i = 0; i < size[0]; i++) {
         for (let j = 0; j < size[1]; j++) {
             const group = answer.groupMap[i][j];
             remaining[group]--;
+            groupCells[group].push([i, j]);
             const marked = groupType[group][1].find(cell => cell[0] === remaining[group]);
             if (marked) {
                 sign[i][j][2] = [marked[1], marked[2]];
+                groupClueCount[group]++;
             } else if (settings.collegesEnabled &&
                 Math.random() < SIGN_RATE / Math.sqrt(Math.sqrt(remaining[group]))) {
                 sign[i][j][2] = [groupType[group][0], random(TYPE_SCALE[groupType[group][0]])];
+                groupClueCount[group]++;
             } else if ((i + j) % 2) {
                 sign[i][j][2] = [0, 1];
             } else {
                 sign[i][j][2] = [0, 0];
             }
+        }
+    }
+
+    // 质量保底：完全没有线索的区域等于不受约束（怎么围都行），题面松散无趣——
+    // 给这类区域（≥2 格、非字母区域）补一枚该组书院签
+    if (settings.collegesEnabled) {
+        for (let group = 0; group < answer.group.length; group++) {
+            if (groupClueCount[group] > 0 || letterGroups.has(group) || groupCells[group].length < 2) {
+                continue;
+            }
+            const [x, y] = randomItem(groupCells[group]);
+            sign[x][y][2] = [groupType[group][0], random(TYPE_SCALE[groupType[group][0]])];
         }
     }
 
@@ -728,8 +953,16 @@ function scaleEffortForSize(settings, size) {
     settings.normalCandidateAttempts = Math.min(settings.normalCandidateAttempts, 12);
     settings.normalCandidateLimit = Math.min(settings.normalCandidateLimit, 2);
     settings.localCoverageWindow = Math.max(settings.localCoverageWindow, 4);
+    // 大盘上"消灭所有 2×2 空白"≈铺满全盘，永远达不到 ⇒ needsRefinement 永真，
+    // 每个候选都白跑整套变异游走。把变异目标窗口一并放大到与盘面匹配的尺度。
+    settings.mutationWindow = Math.max(settings.mutationWindow, 3);
     if (area > 484) {
         settings.localCoverageWindow = Math.max(settings.localCoverageWindow, 5);
+        settings.mutationWindow = Math.max(settings.mutationWindow, 4);
+        // 超大盘单次变异重排 40 次游走太贵（每次 ~10ms），收紧采样规模
+        settings.mutationTargetWindows = 1;
+        settings.mutationCutSamples = Math.min(settings.mutationCutSamples, 3);
+        settings.mutationWaypointSamples = Math.min(settings.mutationWaypointSamples, 3);
         // 超大盘（>22×22）字母只占一格视觉意义有限，且强制链会拖垮生成——直接跳过
         settings.letterMode = 'none';
     }
@@ -741,6 +974,8 @@ export function generatePuzzle(size, level = 0, options = {}) {
     const t = settings.difficultyValue;
     const startedAt = Date.now();
     const deadline = startedAt + settings.generationBudgetMs;
+    // 让深层的变异/修补循环也能感知预算，防止单次 refine 吃掉整个 deadline
+    settings.deadlineAt = deadline;
     let answer = null;
     const letters = [];
     const byLetter = placementsByLetter(size);
@@ -784,43 +1019,56 @@ export function generatePuzzle(size, level = 0, options = {}) {
     // 普通题：先多生成若干候选，再做局部变异修补，最后按得分择优
     if (!answer) {
         const candidates = [];
-        for (let attempt = 0;
-            attempt < settings.normalCandidateAttempts &&
-            candidates.length < settings.normalCandidateLimit;
-            attempt++) {
-            if (Date.now() > deadline && candidates.length) {
+        const coveredFallbacks = [];
+        const looseFallbacks = [];
+        const rememberCandidate = (candidate) => {
+            const profile = coverageProfile(candidate, size, settings);
+            const score = scoreAnswer(candidate, size, t, settings, profile);
+            pushTopEntries(looseFallbacks, { candidate, score }, settings.normalCandidateLimit);
+            if (profile.coarse.blankWindows === 0) {
+                pushTopEntries(coveredFallbacks, { candidate, score }, settings.normalCandidateLimit);
+            }
+            if (validAnswer(candidate, size, settings, profile)) {
+                pushTopEntries(candidates, { candidate, score }, settings.normalCandidateLimit);
+            }
+        };
+
+        for (let attempt = 0; attempt < settings.normalCandidateAttempts; attempt++) {
+            // 攒够择优候选就停；过了预算也停（下方兜底层能从 covered/loose 里选）
+            if (candidates.length >= settings.normalCandidateLimit || Date.now() > deadline) {
                 break;
             }
-            const candidate = generateAnswer(size);
+            const candidate = generateAnswer(size, settings);
             if (!candidate) {
                 continue;
             }
             const refined = refineCandidate(candidate, size, t, settings);
-            if (validAnswer(refined, size, settings)) {
-                candidates.push(refined);
-            }
+            rememberCandidate(refined);
         }
-        // 兜底一级：放宽区域分布过滤，但保留局部覆盖质控（限时）
+        // 兜底一级：继续采样并记住最好的"覆盖过关"候选，别被第一张尚可题面绑架。
+        // 只用 75% 预算——严格候选迟迟不来时，早点接受 covered/loose 兜底
+        const strictDeadline = startedAt + settings.generationBudgetMs * 0.75;
         let fallbackAttempts = 0;
-        while (!candidates.length && fallbackAttempts < 600 && Date.now() <= deadline) {
-            const candidate = generateAnswer(size);
+        while (!candidates.length && fallbackAttempts < 600 && Date.now() <= strictDeadline) {
+            const candidate = generateAnswer(size, settings);
             if (candidate) {
-                const refined = refineCandidate(candidate, size, t, settings);
-                if (hasLocalLineCoverage(refined, size, settings.localCoverageWindow)) {
-                    candidates.push(refined);
-                }
+                rememberCandidate(refineCandidate(candidate, size, t, settings));
             }
             fallbackAttempts++;
         }
-        // 兜底二级：超时后不再挑剔，接受首个能生成的路径，保证任何尺寸不假死
-        while (!candidates.length) {
-            const candidate = generateAnswer(size);
+        // 兜底二级：若严格质控一个都没有，至少拿"覆盖过关"里最好的；再不济才退到任意最优
+        if (candidates.length) {
+            answer = candidates[0].candidate;
+        } else if (coveredFallbacks.length) {
+            answer = coveredFallbacks[0].candidate;
+        }
+        while (!answer) {
+            const candidate = generateAnswer(size, settings);
             if (candidate) {
-                candidates.push(refineCandidate(candidate, size, t, settings));
+                rememberCandidate(refineCandidate(candidate, size, t, settings));
+                answer = looseFallbacks[0]?.candidate ?? null;
             }
         }
-        answer = candidates.reduce((best, candidate) =>
-            scoreAnswer(candidate, size, t, settings) > scoreAnswer(best, size, t, settings) ? candidate : best);
     }
 
     const sign = fillSigns(answer, size, t, letters, settings);

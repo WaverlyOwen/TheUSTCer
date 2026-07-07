@@ -17,6 +17,7 @@ const TIMED_DURATION_KEY = 'timedDurationMinutes';
 const LEGACY_LEVEL_KEY = 'level';
 
 export const TIMED_MODE_OPTIONS = [10, 20, 30, 45];
+export const TIMED_START_LEVEL = 20;
 // 挑战棋盘尺寸范围：上限由生成耗时实测确定（36×36 生成 ~4.4s，落在"加载约 5s"目标内）
 export const MIN_CHALLENGE_SIZE = 4;
 export const MAX_CHALLENGE_SIZE = 36;
@@ -118,6 +119,19 @@ export function formatDuration(ms, withHours = true) {
     return [minutes, seconds].map(value => String(value).padStart(2, '0')).join(':');
 }
 
+export function shouldBlockInteraction({
+    transitionBusy = false,
+    generating = false,
+    currentMode = MODE_CLASSIC,
+    timedEnded = false,
+    endingVisible = false,
+} = {}) {
+    return transitionBusy ||
+        generating ||
+        currentMode === MODE_CLASSIC && endingVisible ||
+        currentMode === MODE_TIMED && timedEnded;
+}
+
 export function loadClassicRun() {
     const level = load(CLASSIC_LEVEL_KEY, load(LEGACY_LEVEL_KEY, 0));
     const now = Date.now();
@@ -216,7 +230,7 @@ export function timedSession(minutes) {
     return {
         durationMinutes: minutes,
         startedAt: Date.now(),
-        level: 0,
+        level: TIMED_START_LEVEL,
         cleared: 0,
         ended: false,
         finalCleared: null,

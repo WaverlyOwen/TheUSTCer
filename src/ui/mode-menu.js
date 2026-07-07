@@ -110,14 +110,29 @@ function render(state) {
                     <p class="mode-summary">${state.challenge.summary}</p>
                     <div class="challenge-grid">
                         <label class="mode-field">
-                            <span>列数</span>
-                            <input type="number" min="${MIN_CHALLENGE_SIZE}" max="${MAX_CHALLENGE_SIZE}" name="width" value="${state.challenge.config.width}">
+                            <span>列数 <strong data-size-value="width">${state.challenge.config.width}</strong></span>
+                            <input
+                                type="range"
+                                min="${MIN_CHALLENGE_SIZE}"
+                                max="${MAX_CHALLENGE_SIZE}"
+                                step="1"
+                                name="width"
+                                value="${state.challenge.config.width}"
+                            >
                         </label>
                         <label class="mode-field">
-                            <span>行数</span>
-                            <input type="number" min="${MIN_CHALLENGE_SIZE}" max="${MAX_CHALLENGE_SIZE}" name="height" value="${state.challenge.config.height}">
+                            <span>行数 <strong data-size-value="height">${state.challenge.config.height}</strong></span>
+                            <input
+                                type="range"
+                                min="${MIN_CHALLENGE_SIZE}"
+                                max="${MAX_CHALLENGE_SIZE}"
+                                step="1"
+                                name="height"
+                                value="${state.challenge.config.height}"
+                            >
                         </label>
                     </div>
+                    <div class="challenge-range-hint">${MIN_CHALLENGE_SIZE} - ${MAX_CHALLENGE_SIZE}</div>
                     <div class="mode-pill-row">${difficultyButtons(state.challenge.config.difficulty)}</div>
                     <div class="challenge-toggles">
                         ${toggleRow('letters', state.challenge.config.letters, '字母题', '固定朝向的 U / S / T / C', !challengeLettersEnabled)}
@@ -184,8 +199,12 @@ export function setupModeMenu(button, handlers) {
         if (config) {
             const widthInput = panel.querySelector('input[name="width"]');
             const heightInput = panel.querySelector('input[name="height"]');
+            const widthValue = panel.querySelector('[data-size-value="width"]');
+            const heightValue = panel.querySelector('[data-size-value="height"]');
             if (widthInput) widthInput.value = config.width;
             if (heightInput) heightInput.value = config.height;
+            if (widthValue) widthValue.textContent = String(config.width);
+            if (heightValue) heightValue.textContent = String(config.height);
             for (const name of ['letters', 'colleges', 'pairs', 'roads']) {
                 const box = panel.querySelector(`input[name="${name}"]`);
                 if (box) box.checked = config[name];
@@ -237,7 +256,17 @@ export function setupModeMenu(button, handlers) {
             });
         });
 
-        panel.querySelectorAll('.challenge-grid input, .challenge-toggles input').forEach((input) => {
+        panel.querySelectorAll('.challenge-grid input').forEach((input) => {
+            input.addEventListener('input', () => {
+                updateChallengeFromInputs();
+                syncChallengeControls();
+            });
+            input.addEventListener('change', () => {
+                updateChallengeFromInputs();
+                syncChallengeControls();
+            });
+        });
+        panel.querySelectorAll('.challenge-toggles input').forEach((input) => {
             input.addEventListener('change', () => {
                 updateChallengeFromInputs();
                 syncChallengeControls();
