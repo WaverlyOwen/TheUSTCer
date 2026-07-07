@@ -1,7 +1,6 @@
 "use strict";
 
 import { isMobileDevice } from '../input/touch.js';
-import { createLetterTutorialSlides } from './letter-tutorial.js';
 import menuSlidesHtml from './menu-slides.html?raw';
 
 const MENU_CLOSE_MS = 500;
@@ -178,7 +177,13 @@ export function setupMenu(button, swipeDetector, callbacks = {}) {
 
         const slider = document.createElement('div');
         slider.classList.add('slider', 'fade-in');
-        slider.innerHTML = menuSlidesHtml.replace('<!-- LETTER_TUTORIAL_SLIDES -->', createLetterTutorialSlides());
+        slider.innerHTML = menuSlidesHtml;
+        slider.querySelectorAll('.slide').forEach((slide) => {
+            const text = slide.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+            if (text.includes('指定字母')) {
+                slide.remove();
+            }
+        });
         document.body.appendChild(slider);
         control(slider);
 
