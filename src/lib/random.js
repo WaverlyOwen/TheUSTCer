@@ -20,16 +20,27 @@ export function random(max) {
     return Math.floor(Math.random() * max);
 }
 
-// 精选主题色对：固定少数色相、低饱和低明度的深色（用户线）+ 同色相浅色（答案线/圆点）。
-// 金色留给胜利动画、红色留给失败态，不进轮换。
-const THEMES = [
-    { darkColor: 'hsl(215, 28%, 40%)', lightColor: 'hsl(215, 32%, 88%)' }, // 蓝
-    { darkColor: 'hsl(168, 25%, 38%)', lightColor: 'hsl(168, 28%, 87%)' }, // 青
-    { darkColor: 'hsl(262, 22%, 44%)', lightColor: 'hsl(262, 28%, 89%)' }, // 紫
-    { darkColor: 'hsl(345, 26%, 44%)', lightColor: 'hsl(345, 30%, 89%)' }, // 绛
-    { darkColor: 'hsl(28, 30%, 42%)',  lightColor: 'hsl(35, 35%, 87%)' },  // 褐
+// 精选主题色相：固定少数色相，浅色题板用低饱和深色线 + 同色相浅色答案线；
+// 深色题板反转明度（亮线 + 暗答案线）。金色留给胜利动画、红色留给失败态，不进轮换。
+const THEME_HUES = [
+    { hue: 215, sat: 28 }, // 蓝
+    { hue: 168, sat: 25 }, // 青
+    { hue: 262, sat: 24 }, // 紫
+    { hue: 345, sat: 26 }, // 绛
+    { hue: 28, sat: 30 },  // 褐
 ];
 
-export function getThemeColors() {
-    return THEMES[Math.floor(Math.random() * THEMES.length)];
+export function getThemeColors(dark = false) {
+    const { hue, sat } = THEME_HUES[Math.floor(Math.random() * THEME_HUES.length)];
+    if (dark) {
+        // 深底：用户线亮而干净（高亮度中饱和），答案线沉在底色附近但仍可辨
+        return {
+            darkColor: `hsl(${hue}, ${sat + 32}%, 76%)`,
+            lightColor: `hsl(${hue}, ${sat + 10}%, 38%)`,
+        };
+    }
+    return {
+        darkColor: `hsl(${hue}, ${sat}%, 40%)`,
+        lightColor: `hsl(${hue}, ${sat + 4}%, 88%)`,
+    };
 }

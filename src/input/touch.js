@@ -3,18 +3,35 @@
 export const isMobileDevice = () =>
     /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-// 移动端：滑动画线 + 底部操作按钮
-export function createSwipeDetector(actions, threshold = 40) {
+const BASE_SWIPE_THRESHOLD = 40;
+
+// 移动端滑动画线：滑过阈值距离即走一格。
+// getSensitivity ∈ [0.5, 1.5]：越高阈值越短越跟手。
+// 第二根手指落下（捏合缩放手势）时立即放弃当前滑动跟踪，避免画线与缩放打架。
+export function createSwipeDetector(actions, getSensitivity = () => 1) {
     let x = 0;
     let y = 0;
 
+    const threshold = () =>
+        BASE_SWIPE_THRESHOLD / Math.min(1.5, Math.max(0.5, getSensitivity()));
+
     const handleTouchStart = (event) => {
+        if (event.touches.length > 1) {
+            x = 0;
+            y = 0;
+            return;
+        }
         const touch = event.touches[0];
         x = touch.clientX;
         y = touch.clientY;
     };
 
     const handleTouchMove = (event) => {
+        if (event.touches.length > 1) {
+            x = 0;
+            y = 0;
+            return;
+        }
         event.preventDefault();
         if (!x || !y) {
             return;
@@ -22,12 +39,13 @@ export function createSwipeDetector(actions, threshold = 40) {
         const touch = event.touches[0];
         const diffX = touch.clientX - x;
         const diffY = touch.clientY - y;
+        const limit = threshold();
 
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > threshold) {
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > limit) {
             actions.move(diffX > 0 ? 0 : 2);
             x = touch.clientX;
             y = touch.clientY;
-        } else if (Math.abs(diffY) > threshold) {
+        } else if (Math.abs(diffY) > limit) {
             actions.move(diffY > 0 ? 1 : 3);
             x = touch.clientX;
             y = touch.clientY;
@@ -51,30 +69,4 @@ export function createSwipeDetector(actions, threshold = 40) {
             document.removeEventListener('touchend', handleTouchEnd);
         },
     };
-}
-
-export function createMobileControls(actions) {
-    const buttons = document.createElement('div');
-    buttons.setAttribute('id', 'mobile');
-
-    for (const [label, action] of [
-        ['清空路径', actions.clear],
-        ['提交答案', actions.submit],
-        ['显示答案', actions.showAnswer],
-        ['隐藏答案', actions.hideAnswer],
-        ['更换地图', actions.changeMap],
-    ]) {
-        const button = document.createElement('button');
-        button.textContent = label;
-        button.addEventListener('touchstart', (event) => {
-            event.preventDefault();
-            action();
-        });
-        buttons.appendChild(button);
-    }
-    document.body.appendChild(buttons);
-
-    const swipeDetector = createSwipeDetector(actions);
-    swipeDetector.addEventListener();
-    return swipeDetector;
 }

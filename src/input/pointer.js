@@ -1,14 +1,19 @@
 "use strict";
 
-// 鼠标画线：从路径头部（初始为起点圆点）按住拖动。
+// 鼠标/触摸画线：从路径头部（初始为起点圆点）按住拖动。
 // 线头被指针"吸引"——指针在两节点之间时以 partial 形式喂给动画器画出半截线，
 // 越过 COMMIT 阈值才真正 step/back 提交，往返有迟滞不会抖动。
 // 复用 Path 状态机，规则与键盘输入完全一致。
-const COMMIT = 0.75;
+// callbacks.getSensitivity ∈ [0.5,1.5]：越高提交阈值越低越跟手。
+const BASE_COMMIT = 0.75;
 const DEADZONE = 0.05;
 
 export function attachPointer(svg, userPath, callbacks) {
     let drawing = false;
+    const commitThreshold = () => {
+        const sensitivity = Math.min(1.5, Math.max(0.5, callbacks.getSensitivity?.() ?? 1));
+        return Math.min(0.95, Math.max(0.5, BASE_COMMIT / sensitivity));
+    };
 
     function toNodeCoords(event) {
         const ctm = svg.getScreenCTM();
@@ -32,6 +37,7 @@ export function attachPointer(svg, userPath, callbacks) {
     // 提交所有越过阈值的整步，剩余的分量转成 partial 显示
     function dragTo(coords) {
         let partial = null;
+        const commit = commitThreshold();
 
         for (let guard = 0; guard < 8; guard++) {
             const dx = coords[0] - userPath.x;
@@ -40,7 +46,7 @@ export function attachPointer(svg, userPath, callbacks) {
             const dir = horizontal ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3);
             const magnitude = horizontal ? Math.abs(dx) : Math.abs(dy);
 
-            if (magnitude >= COMMIT) {
+            if (magnitude >= commit) {
                 if (isReverse(dir)) {
                     userPath.back();
                     continue;
@@ -51,7 +57,7 @@ export function attachPointer(svg, userPath, callbacks) {
                 // 主导方向被挡，试另一轴（沿墙滑动）
                 const sideDir = horizontal ? (dy > 0 ? 1 : 3) : (dx > 0 ? 0 : 2);
                 const sideMagnitude = horizontal ? Math.abs(dy) : Math.abs(dx);
-                if (sideMagnitude >= COMMIT) {
+                if (sideMagnitude >= commit) {
                     if (isReverse(sideDir)) {
                         userPath.back();
                         continue;
@@ -86,6 +92,8 @@ export function attachPointer(svg, userPath, callbacks) {
             return;
         }
         event.preventDefault();
+        // 画线接管这次按下：不再冒泡给视口平移手势
+        event.stopPropagation();
         if (userPath.finished) {
             callbacks.onSubmit();
             return;

@@ -5,7 +5,8 @@
   left: 0;
   right: 0;
   height: 100vh;
-  background-color: white;
+  background-color: var(--bg);
+  transition: background-color 0.25s ease;
 }
 .particle-network-animation::before {
   z-index: -2;

@@ -1,11 +1,13 @@
 "use strict";
 
 import { matchesLetter } from './letters.js';
+import { colorKeyOf } from './puzzle-io.js';
 
 // 判题并返回违规明细：
 //   cells — 违规判定格（书院颜色冲突/红专理实不成对/字母区域形状不符），供反色高亮
 //   roads — 未被穿过的黑色路名 [i, j, orient]（0 横路 1 竖路），供闪红
-export function checkSolution(sign, size, userPath) {
+// palette：自定义题的调色板，书院冲突按颜色键统一分组（书院四色与自定义色同权）
+export function checkSolution(sign, size, userPath, palette = []) {
     if (!userPath.finished) {
         return { ok: false, unfinished: true, cells: [], roads: [] };
     }
@@ -23,8 +25,9 @@ export function checkSolution(sign, size, userPath) {
             const group = userPath.groupMap[i][j];
             regionCells[group].push([i, j]);
             const type = sign[i][j][2][0];
-            if (type >= 7 && type <= 10) {
-                collegeCells[group].push({ cell: [i, j], type });
+            const colorKey = colorKeyOf(sign[i][j][2], palette);
+            if (colorKey !== null) {
+                collegeCells[group].push({ cell: [i, j], colorKey });
             } else if (type === 11 || type === 12) {
                 pairCells[group][(type - 11) * 2 + sign[i][j][2][1]].push([i, j]);
             } else if (type === 14) {
@@ -43,7 +46,7 @@ export function checkSolution(sign, size, userPath) {
     const badCells = [];
     for (let group = 0; group < groupCount; group++) {
         // 书院颜色冲突：一个区域内出现多种颜色的书院
-        const collegeTypes = new Set(collegeCells[group].map(entry => entry.type));
+        const collegeTypes = new Set(collegeCells[group].map(entry => entry.colorKey));
         if (collegeTypes.size > 1) {
             badCells.push(...collegeCells[group].map(entry => entry.cell));
         }

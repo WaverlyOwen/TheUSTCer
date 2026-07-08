@@ -1,32 +1,17 @@
 "use strict";
 
 import { PathAnimator } from './animator.js';
+import { boardPalette } from '../lib/theme.js';
 import { LETTER_NAMES } from '../core/letters.js';
+import {
+    CELL_NAMES,
+    CUSTOM_ROAD_BASE,
+    CUSTOM_TYPE_BASE,
+    ROAD_NAMES,
+    readableTextColor,
+} from '../core/puzzle-io.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-
-const ROAD_NAMES = [
-    [
-        "孺子牛路", "勤奋路", "寰宇北路", "寰宇南路", "励学路",
-        "黄山路", "瀚海路", "英才路", "红专路", "黄山路", "四牌楼路",
-    ],
-    [
-        "金寨路", "郭沫若路", "天使路", "玉泉南路", "玉泉北路",
-        "肥西路", "志学路", "石榴园路", "寰宇东路", "寰宇西路", "济慧路",
-    ],
-];
-
-const CELL_NAMES = [
-    ["少"],
-    ["管", "工", "数"],
-    ["网", "微", "计", "生", "信"],
-    ["环", "核", "地", "化", "物"],
-    ["红", "专"],
-    ["理", "实"],
-];
-
-const CELL_COLORS = ["#e69138", "#4272b8", "#4a9e6b", "#8e63b5", "#d64545", "#4272b8"];
-const LETTER_CELL_COLOR = "#3a3f4b";
 const FAIL_FLASH_STEPS = [true, false, true, false, true, false, true, false];
 const FAIL_FLASH_INTERVAL_MS = 120;
 const FAIL_FLASH_DURATION_MS = FAIL_FLASH_STEPS.length * FAIL_FLASH_INTERVAL_MS + 120;
@@ -55,13 +40,17 @@ function borderD(size) {
 }
 
 export class BoardView {
-    constructor(puzzle, theme) {
+    constructor(puzzle, theme, { container = null, svgId = 'problem' } = {}) {
         this.puzzle = puzzle;
         this.theme = theme;
+        this.container = container;
+        // SVG fill/stroke 是属性不吃 CSS 变量，深浅色题板用 JS 侧调色板；
+        // 切主题时由 main.js 重建 BoardView
+        this.palette = boardPalette();
         const [w, h] = puzzle.size;
 
         this.svg = svgElement('svg', {
-            id: 'problem',
+            id: svgId,
             viewBox: `-30 -30 ${(w + 2) * 50} ${(h + 1) * 50}`,
         });
         this.svg.classList.add('board');
@@ -69,8 +58,8 @@ export class BoardView {
 
         this.svg.appendChild(svgElement('path', {
             d: borderD(puzzle.size),
-            fill: 'white',
-            stroke: 'black',
+            fill: this.palette.boardFill,
+            stroke: this.palette.stroke,
             'stroke-width': '2',
         }));
 
@@ -111,10 +100,12 @@ export class BoardView {
         this.dot.classList.add('dot');
         this.svg.appendChild(this.dot);
 
-        document.body.appendChild(this.svg);
+        (this.container ?? document.getElementById('board-pan') ?? document.body).appendChild(this.svg);
     }
 
-    // 原 compareCssLengths 会插入临时节点强制布局，这里直接用视口尺寸计算
+    // 原 compareCssLengths 会插入临时节点强制布局，这里直接用视口尺寸计算。
+    // 基准尺寸写进 dataset 供视口做矢量缩放（真实显示尺寸 = 基准 × zoom，
+    // 由 viewport.apply() 写 style 宽高，SVG 矢量重绘保持清晰）。
     applyScale() {
         const [w, h] = this.puzzle.size;
         const vw = window.innerWidth / 100;
@@ -124,8 +115,12 @@ export class BoardView {
             (80 * vw) / ((w + 2) * 5 * vh),
             50 / ((h + 1) * 5),
         );
-        this.svg.setAttribute('width', `${(w + 2) * 5 * scale}vh`);
-        this.svg.setAttribute('height', `${(h + 1) * 5 * scale}vh`);
+        const width = (w + 2) * 5 * scale * vh;
+        const height = (h + 1) * 5 * scale * vh;
+        this.svg.dataset.baseWidth = String(width);
+        this.svg.dataset.baseHeight = String(height);
+        this.svg.style.width = `${width}px`;
+        this.svg.style.height = `${height}px`;
     }
 
     drawSigns(cellG, textG, roadG) {
@@ -163,7 +158,10 @@ export class BoardView {
             attributes.y = 8 + 50 * position[1];
         }
         const road = svgElement('text', attributes);
-        road.textContent = ROAD_NAMES[type[0] - 5][type[1]];
+        road.setAttribute('fill', this.palette.roadText);
+        road.textContent = type[1] >= CUSTOM_ROAD_BASE
+            ? (this.puzzle.roadNames?.[type[1] - CUSTOM_ROAD_BASE] ?? '')
+            : (ROAD_NAMES[type[0] - 5][type[1]] ?? '');
         roadG.appendChild(road);
         this.roadTexts.set(`${position[0]},${position[1]},${type[0] === 6 ? 1 : 0}`, road);
     }
@@ -176,7 +174,7 @@ export class BoardView {
             height: 40,
             rx: 10,
             ry: 10,
-            stroke: 'black',
+            stroke: this.palette.stroke,
             'stroke-width': 2,
         });
 
@@ -188,24 +186,31 @@ export class BoardView {
                 'text-anchor': 'middle',
                 'font-size': 30,
             });
-            if (type[0] === 14) {
+            if (type[0] >= CUSTOM_TYPE_BASE) {
+                // 自定义色格：颜色/文字来自题目自带的 palette 表
+                const entry = this.puzzle.palette?.[type[0] - CUSTOM_TYPE_BASE];
+                const color = entry?.color ?? '#888888';
+                text.textContent = entry?.chars?.[type[1]] ?? '';
+                text.setAttribute('fill', readableTextColor(color));
+                cell.setAttribute('fill', color);
+            } else if (type[0] === 14) {
                 // USTC 字母区块：所在区域必须与字母形状全等
                 text.textContent = LETTER_NAMES[type[1]];
                 text.setAttribute('font-weight', 'bold');
                 text.setAttribute('fill', 'white');
-                cell.setAttribute('fill', LETTER_CELL_COLOR);
+                cell.setAttribute('fill', this.palette.letterCell);
             } else if (type[0] < 11) {
                 text.textContent = CELL_NAMES[type[0] - 7][type[1]];
                 text.setAttribute('fill', 'white');
-                cell.setAttribute('fill', CELL_COLORS[type[0] - 7]);
+                cell.setAttribute('fill', this.palette.cellColors[type[0] - 7]);
             } else {
                 text.textContent = CELL_NAMES[type[0] - 7][type[1]];
-                text.setAttribute('fill', CELL_COLORS[type[0] - 7]);
-                cell.setAttribute('fill', 'white');
+                text.setAttribute('fill', this.palette.cellColors[type[0] - 7]);
+                cell.setAttribute('fill', this.palette.boardFill);
             }
             textG.appendChild(text);
         } else {
-            cell.setAttribute('fill', type[1] ? '#F0F0F0' : 'white');
+            cell.setAttribute('fill', type[1] ? this.palette.shadeCell : this.palette.blankCell);
         }
         cellG.appendChild(cell);
         this.cellRects[position[0]][position[1]] = cell;
@@ -217,6 +222,9 @@ export class BoardView {
     }
 
     showAnswer() {
+        if (!this.puzzle.answer) {
+            return;
+        }
         this.answerAnimator.setState(this.puzzle.answer.queue);
     }
 
@@ -279,9 +287,10 @@ export class BoardView {
                     },
                 });
             } else {
+                const flashFill = this.palette.letterCell;
                 this.failHighlights.push({
                     set(active) {
-                        rect.setAttribute('fill', active ? LETTER_CELL_COLOR : rectFill);
+                        rect.setAttribute('fill', active ? flashFill : rectFill);
                     },
                     restore() {
                         rect.setAttribute('fill', rectFill);

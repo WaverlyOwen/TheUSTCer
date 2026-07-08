@@ -6,6 +6,8 @@ import { gpaValueForLevel } from './level.js';
 export const MODE_CLASSIC = 'classic';
 export const MODE_TIMED = 'timed';
 export const MODE_CHALLENGE = 'challenge';
+// 题目工坊的临时游玩会话：不动三个正式模式的进度
+export const MODE_CUSTOM = 'custom';
 
 const CLASSIC_LEVEL_KEY = 'classicLevel';
 const CLASSIC_STARTED_AT_KEY = 'classicStartedAt';
@@ -25,6 +27,8 @@ export const MAX_CHALLENGE_LETTER_AREA = 22 * 22;
 export const CLASSIC_UNLOCKS = {
     timed: 3.0,
     challenge: 3.7,
+    // 题目创作（工坊里的新建/编辑）；收藏、游玩、分享不受此限制
+    workshop: 4.0,
 };
 
 export const CHALLENGE_DIFFICULTIES = {
@@ -176,6 +180,7 @@ export function loadUnlocks() {
     return {
         timed: Boolean(stored.timed),
         challenge: Boolean(stored.challenge),
+        workshop: Boolean(stored.workshop),
     };
 }
 
@@ -185,7 +190,7 @@ export function saveUnlocks(unlocks) {
 
 export function resetUnlocks() {
     remove(UNLOCKS_KEY);
-    return { timed: false, challenge: false };
+    return { timed: false, challenge: false, workshop: false };
 }
 
 export function unlocksForLevel(level) {
@@ -193,6 +198,7 @@ export function unlocksForLevel(level) {
     return {
         timed: gpa >= CLASSIC_UNLOCKS.timed,
         challenge: gpa >= CLASSIC_UNLOCKS.challenge,
+        workshop: gpa >= CLASSIC_UNLOCKS.workshop,
     };
 }
 

@@ -1,6 +1,14 @@
 "use strict";
 
+import { isDark, onThemeChange } from '../lib/theme.js';
+
 // 背景粒子网络动画（原 static/js/background.js，移除 jQuery 依赖）
+
+function paletteForTheme() {
+    return isDark()
+        ? { netLineColor: '#20242d', particleColors: ['#333a47'] }
+        : { netLineColor: '#e8e8e8', particleColors: ['#d9d9d9'] };
+}
 
 function getLimitedRandom(min, max) {
     return Math.random() * (max - min) + min;
@@ -53,14 +61,20 @@ class ParticleNetwork {
             velocity: 0.5,
             density: 10000,
             netLineDistance: 150,
-            netLineColor: '#e8e8e8',
-            particleColors: ['#d9d9d9'],
+            ...paletteForTheme(),
         };
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.createParticles(true);
         this.animationFrame = requestAnimationFrame(this.update.bind(this));
         this.bindUiActions();
+        // 深浅色切换时线条/粒子颜色跟随（画布逐帧重绘，改 options 即生效）
+        onThemeChange(() => {
+            Object.assign(this.options, paletteForTheme());
+            for (const particle of this.particles) {
+                particle.particleColor = this.options.particleColors[0];
+            }
+        });
     }
 
     createParticles(isInitial) {

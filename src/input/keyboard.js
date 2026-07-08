@@ -2,6 +2,10 @@
 
 export function attachKeyboard(actions) {
     const handler = (event) => {
+        // 焦点在表单控件（编辑器名称/自定义字/滑杆等）时不劫持按键
+        if (event.target.closest?.('input, textarea, select')) {
+            return;
+        }
         switch (event.key) {
             case 'd': case 'D': case 'ArrowRight':
                 event.preventDefault();

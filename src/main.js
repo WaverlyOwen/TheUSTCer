@@ -12,6 +12,7 @@ import {
     CHALLENGE_DIFFICULTIES,
     MODE_CHALLENGE,
     MODE_CLASSIC,
+    MODE_CUSTOM,
     MODE_TIMED,
     challengeGenerationOptions,
     challengeSession,
@@ -37,10 +38,27 @@ import { checkSolution } from './core/validator.js';
 import { attachDebugGlobals, createDebugApi } from './debug/api.js';
 import { attachKeyboard } from './input/keyboard.js';
 import { attachPointer } from './input/pointer.js';
-import { createMobileControls, isMobileDevice } from './input/touch.js';
+import { createSwipeDetector, isMobileDevice } from './input/touch.js';
 import { load, remove, save } from './lib/storage.js';
+import { getSensitivity } from './lib/settings.js';
+import { isDark, onThemeChange } from './lib/theme.js';
+import {
+    decodeShareHash,
+    deleteSavedPuzzle,
+    deserializePuzzle,
+    encodeShareUrl,
+    loadSavedPuzzles,
+    savePuzzleRecord,
+    serializePuzzle,
+} from './core/puzzle-io.js';
+import { copyText } from './lib/clipboard.js';
+import { setupToolbar } from './ui/toolbar.js';
+import { openEditor } from './ui/editor.js';
+import { showToast } from './ui/toast.js';
 import { getThemeColors } from './lib/random.js';
 import { BoardView } from './render/board.js';
+import { createBoardViewport } from './render/viewport.js';
+import { attachGestures } from './input/gesture.js';
 import { initBackground } from './ui/background.js';
 import { playEnding, playMilestoneCelebration, showReplayButton } from './ui/ending.js';
 import { createHud } from './ui/hud.js';
@@ -101,6 +119,7 @@ async function startGame() {
     unlocks = {
         timed: unlocks.timed || earnedUnlocks.timed,
         challenge: unlocks.challenge || earnedUnlocks.challenge,
+        workshop: unlocks.workshop || earnedUnlocks.workshop,
     };
     if (persistClassic) {
         saveUnlocks(unlocks);
@@ -113,6 +132,8 @@ async function startGame() {
 
     const hud = createHud();
     const loading = createLoadingOverlay();
+    const boardViewport = createBoardViewport();
+    attachGestures(boardViewport);
 
     let board = null;
     let userPath = null;
@@ -120,12 +141,16 @@ async function startGame() {
     let detachPointer = null;
     let swipeDetector = null;
     let modeMenu = null;
+    let toolbar = null;
+    let answerShown = false;
     let transitionBusy = false;
     let generating = false;
     let generationTicket = 0;
     let resizeTimer = null;
     let endingVisible = false;
     let endingPromise = null;
+    let customRecord = null;   // 题目工坊：当前游玩的自定义题记录
+    let editorOpen = false;
 
     function saveClassic() {
         if (persistClassic) {
@@ -251,6 +276,9 @@ async function startGame() {
     }
 
     function currentSize() {
+        if (currentMode === MODE_CUSTOM) {
+            return [customRecord.w, customRecord.h];
+        }
         if (currentMode === MODE_CHALLENGE) {
             const config = challengeRun?.config ?? challengeConfig;
             return [config.width, config.height];
@@ -281,6 +309,8 @@ async function startGame() {
                 return '正在安排下一题...';
             case MODE_CHALLENGE:
                 return '正在定制挑战题面...';
+            case MODE_CUSTOM:
+                return '正在装载题目...';
             case MODE_CLASSIC:
             default:
                 return '正在安排新学期...';
@@ -288,11 +318,28 @@ async function startGame() {
     }
 
     function buildPuzzle() {
+        if (currentMode === MODE_CUSTOM) {
+            return deserializePuzzle(customRecord);
+        }
         return generatePuzzle(currentSize(), currentLevelValue(), currentGenerationOptions());
     }
 
     function syncUserLine(partial = null) {
         board?.updateUserLine(userPath.queue, partial);
+    }
+
+    // 自动提交：路径踏入出口的瞬间判定一次（false→true 边沿触发，
+    // 悬停/重复 onUpdate 不会连发；判错后回拖出出口再进来会再次触发）
+    let wasFinished = false;
+
+    function maybeAutoSubmit() {
+        const finished = Boolean(userPath?.finished);
+        if (finished && !wasFinished) {
+            wasFinished = true;
+            actions.submit();
+            return;
+        }
+        wasFinished = finished;
     }
 
     function blockForExpiredTimer() {
@@ -304,7 +351,7 @@ async function startGame() {
     }
 
     function isInteractionBlocked() {
-        return shouldBlockInteraction({
+        return editorOpen || shouldBlockInteraction({
             transitionBusy,
             generating,
             currentMode,
@@ -340,6 +387,12 @@ async function startGame() {
                 primary = `挑战模式 · ${config.width}×${config.height}`;
                 meta = `${currentDifficultyLabel()} · 已解 ${challengeRun?.solved ?? 0} 题`;
                 status = clueSummary(config);
+                break;
+            }
+            case MODE_CUSTOM: {
+                primary = customRecord?.name ?? '自定义题';
+                meta = `题目工坊 · ${customRecord?.w}×${customRecord?.h}`;
+                status = customRecord?.answer ? '' : '本题未附带参考答案';
                 break;
             }
             case MODE_CLASSIC:
@@ -381,6 +434,9 @@ async function startGame() {
                 summary: challengeSummary,
                 note: challengeNote(challengeConfig),
             },
+            workshop: {
+                puzzles: loadSavedPuzzles(),
+            },
         };
     }
 
@@ -407,7 +463,7 @@ async function startGame() {
     function grantUnlocks() {
         const unlockedNow = unlocksForLevel(classicRun.level);
         const newlyUnlocked = [];
-        for (const key of ['timed', 'challenge']) {
+        for (const key of ['timed', 'challenge', 'workshop']) {
             if (unlockedNow[key] && !unlocks[key]) {
                 unlocks[key] = true;
                 newlyUnlocked.push(key);
@@ -446,6 +502,13 @@ async function startGame() {
                     subtitle: '恭喜拿到 A-，挑战模式已解锁',
                     detail: '40% 优秀率到手，现在可以自订棋盘尺寸、题型和质控强度。',
                     accent: 'rose',
+                });
+            } else if (key === 'workshop') {
+                await playMilestoneCelebration({
+                    title: 'GPA 4.00',
+                    subtitle: '恭喜绩点上 4，题目创作已解锁',
+                    detail: '现在可以在题目工坊新建、编辑自己的题目，并用链接分享给朋友。',
+                    accent: 'gold',
                 });
             }
         }
@@ -503,17 +566,58 @@ async function startGame() {
         board?.destroy();
 
         puzzle = nextPuzzle;
-        board = new BoardView(puzzle, getThemeColors());
         userPath = new Path(puzzle.size);
-        if (!isMobileDevice()) {
-            detachPointer = attachPointer(board.svg, userPath, {
-                onUpdate: syncUserLine,
-                onSubmit: () => actions.submit(),
-            });
-        }
+        wasFinished = false;
+        mountBoard();
+        setAnswerShown(false);
+        boardViewport.reset({ animate: false });
 
         generating = false;
         renderHud();
+    }
+
+    function setAnswerShown(shown) {
+        answerShown = shown;
+        toolbar?.setAnswerShown(shown);
+    }
+
+    function mountBoard() {
+        board = new BoardView(puzzle, getThemeColors(isDark()));
+        if (!isMobileDevice()) {
+            detachPointer = attachPointer(board.svg, userPath, {
+                onUpdate: (partial) => {
+                    syncUserLine(partial);
+                    maybeAutoSubmit();
+                },
+                onSubmit: () => actions.submit(),
+                getSensitivity,
+            });
+        }
+    }
+
+    // 切换深浅色：SVG 调色板是属性级的，重建题板并原样重放路径/答案显示状态
+    function rebuildBoardForTheme() {
+        if (!board || !puzzle) {
+            return;
+        }
+        const queue = [...userPath.queue];
+        detachPointer?.();
+        detachPointer = null;
+        board.destroy();
+        userPath = new Path(puzzle.size);
+        for (const move of queue) {
+            userPath.step(move);
+        }
+        wasFinished = userPath.finished;
+        mountBoard();
+        board.updateUserLine(userPath.queue);
+        board.userAnimator?.snap?.();
+        if (answerShown) {
+            board.showAnswer();
+            board.answerAnimator?.snap?.();
+        }
+        // 新 SVG 要按当前缩放状态重新落位/定尺寸
+        boardViewport.layout();
     }
 
     async function enterClassicMode({ refresh = false } = {}) {
@@ -551,7 +655,7 @@ async function startGame() {
             ? resetClassicRun()
             : { level: 0, startedAt: Date.now(), finishedAt: null, pausedMs: 0 };
         classicSuspendedAt = null;
-        unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false };
+        unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false, workshop: false };
         timedRun = null;
         challengeRun = null;
         currentMode = MODE_CLASSIC;
@@ -567,6 +671,16 @@ async function startGame() {
     async function handleSuccess() {
         transitionBusy = true;
         board.winEffect();
+
+        if (currentMode === MODE_CUSTOM) {
+            // 自定义题：庆祝后停在原题，可回菜单换题
+            showToast('恭喜，通过这道自定义题！');
+            setTimeout(() => {
+                transitionBusy = false;
+                renderHud();
+            }, WIN_TRANSITION_MS);
+            return;
+        }
 
         if (currentMode === MODE_CLASSIC) {
             classicRun.level++;
@@ -633,10 +747,12 @@ async function startGame() {
             }
             if (userPath.step(direction)) {
                 syncUserLine();
+                maybeAutoSubmit();
             } else if (userPath.distance &&
                 (direction + 2) % 4 === userPath.queue[userPath.distance - 1]) {
                 userPath.back();
                 syncUserLine();
+                wasFinished = userPath.finished;
             }
         },
         undo() {
@@ -645,6 +761,7 @@ async function startGame() {
             }
             userPath.back();
             syncUserLine();
+            wasFinished = userPath.finished;
         },
         clear() {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
@@ -652,12 +769,13 @@ async function startGame() {
             }
             userPath.clear();
             syncUserLine();
+            wasFinished = false;
         },
         submit() {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
                 return;
             }
-            const result = checkSolution(puzzle.sign, puzzle.size, userPath);
+            const result = checkSolution(puzzle.sign, puzzle.size, userPath, puzzle.palette);
             if (result.ok) {
                 void handleSuccess();
             } else {
@@ -677,14 +795,131 @@ async function startGame() {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
                 return;
             }
+            // 自定义题不保证可解：没有存答案就明确告知，不扣关
+            if (!puzzle.answer) {
+                showToast('No Answer — 这道题没有附带答案');
+                return;
+            }
             board.showAnswer();
+            setAnswerShown(true);
             lowerDifficultyForHint();
             refreshPanels();
         },
         hideAnswer() {
             board?.hideAnswer();
+            setAnswerShown(false);
         },
     };
+
+    function saveCurrentPuzzle() {
+        if (!puzzle) {
+            return;
+        }
+        if (currentMode === MODE_CUSTOM) {
+            showToast('这道题已经在题目工坊里了');
+            return;
+        }
+        try {
+            const record = savePuzzleRecord(serializePuzzle(puzzle, {
+                name: `${puzzle.size[0]}×${puzzle.size[1]} · ${new Date().toLocaleDateString('zh-CN')}`,
+                origin: 'generated',
+            }));
+            showToast(`已保存「${record.name}」，可在 ☰ 菜单的题目工坊查看`);
+        } catch (error) {
+            showToast(String(error?.message ?? error));
+        }
+    }
+
+    // ===== 题目工坊：游玩 / 编辑 / 分享 / 导入 =====
+
+    async function playCustomPuzzle(record) {
+        if (currentMode === MODE_CLASSIC) {
+            suspendClassicRun();
+        }
+        currentMode = MODE_CUSTOM;
+        customRecord = record;
+        await newBoard();
+        refreshPanels();
+    }
+
+    function findSavedPuzzle(id) {
+        return loadSavedPuzzles().find(entry => entry.id === id) ?? null;
+    }
+
+    async function shareRecord(record) {
+        const copied = await copyText(encodeShareUrl(record));
+        showToast(copied ? '分享链接已复制，整道题都在链接里' : '复制失败，请手动复制地址栏链接');
+    }
+
+    function openPuzzleEditor(record = null) {
+        if (editorOpen) {
+            return;
+        }
+        // 创作（新建/编辑）需 GPA 4.00 解锁；收藏、游玩、分享不受限
+        if (!unlocks.workshop) {
+            showToast('经典模式达到 GPA 4.00 后解锁题目创作');
+            return;
+        }
+        editorOpen = true;
+        pushPause();
+        swipeDetector?.removeEventListener();
+        openEditor({
+            record,
+            onSave: (built) => {
+                try {
+                    const saved = savePuzzleRecord(built);
+                    showToast(`已保存「${saved.name}」${built.answer ? '（含答案）' : '（无答案）'}`);
+                    return saved;
+                } catch (error) {
+                    showToast(String(error?.message ?? error));
+                    return null;
+                }
+            },
+            onShare: shareRecord,
+            onPlay: async (built) => {
+                const saved = savePuzzleRecord(built);
+                await playCustomPuzzle(saved);
+            },
+            onClose: () => {
+                editorOpen = false;
+                popPause();
+                swipeDetector?.addEventListener();
+            },
+        });
+    }
+
+    // 启动时的 #p= 分享链接：确认后入列表并直接游玩
+    function showImportConfirm(record) {
+        pushPause();
+        const root = document.createElement('div');
+        root.id = 'import-dialog-root';
+        root.innerHTML = `
+            <div class="mode-menu-backdrop"></div>
+            <section class="import-panel" aria-label="导入分享题目">
+                <h2>导入分享题目</h2>
+                <p class="import-meta"></p>
+                <div class="mode-actions">
+                    <button type="button" class="mode-primary" data-action="import">导入并游玩</button>
+                    <button type="button" class="mode-secondary" data-action="cancel">取消</button>
+                </div>
+            </section>
+        `;
+        // 题目名来自链接（用户可控），用 textContent 注入
+        root.querySelector('.import-meta').textContent =
+            `${record.name ?? '未命名题目'} · ${record.w}×${record.h} · ${record.answer ? '附带答案' : '无答案'}`;
+        document.body.appendChild(root);
+        const dismiss = () => {
+            root.remove();
+            popPause();
+        };
+        root.querySelector('[data-action="import"]').addEventListener('click', async () => {
+            dismiss();
+            const saved = savePuzzleRecord({ ...record, origin: 'imported' });
+            await playCustomPuzzle(saved);
+        });
+        root.querySelector('[data-action="cancel"]').addEventListener('click', dismiss);
+        root.querySelector('.mode-menu-backdrop').addEventListener('click', dismiss);
+    }
 
     const levelAdapter = {
         get value() {
@@ -725,8 +960,19 @@ async function startGame() {
     attachKeyboard(actions);
 
     if (isMobileDevice()) {
-        swipeDetector = createMobileControls(actions);
+        swipeDetector = createSwipeDetector(actions, getSensitivity);
+        swipeDetector.addEventListener();
     }
+
+    toolbar = setupToolbar({
+        clear: () => actions.clear(),
+        showAnswer: () => actions.showAnswer(),
+        hideAnswer: () => actions.hideAnswer(),
+        changeMap: () => actions.changeMap(),
+        savePuzzle: saveCurrentPuzzle,
+    });
+
+    onThemeChange(() => rebuildBoardForTheme());
 
     setupMenu(document.getElementById('help'), swipeDetector, {
         onOpen: pushPause,
@@ -756,11 +1002,39 @@ async function startGame() {
             renderHud();
         },
         startChallenge: startChallengeMode,
+        workshop: {
+            create: () => openPuzzleEditor(),
+            play: async (id) => {
+                const record = findSavedPuzzle(id);
+                if (record) {
+                    await playCustomPuzzle(record);
+                }
+            },
+            edit: (id) => {
+                const record = findSavedPuzzle(id);
+                if (record) {
+                    openPuzzleEditor(record);
+                }
+            },
+            share: async (id) => {
+                const record = findSavedPuzzle(id);
+                if (record) {
+                    await shareRecord(record);
+                }
+            },
+            remove: (id) => {
+                deleteSavedPuzzle(id);
+                showToast('已删除题目');
+            },
+        },
     });
 
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => board?.applyScale(), 150);
+        resizeTimer = setTimeout(() => {
+            board?.applyScale();
+            boardViewport.layout();
+        }, 150);
     });
 
     if (load(ENDING_SEEN_KEY, false)) {
@@ -796,7 +1070,7 @@ async function startGame() {
                     ? resetClassicRun()
                     : { level: 0, startedAt: Date.now(), finishedAt: null, pausedMs: 0 };
                 classicSuspendedAt = null;
-                unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false };
+                unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false, workshop: false };
                 timedRun = null;
                 challengeRun = null;
                 currentMode = MODE_CLASSIC;
@@ -807,8 +1081,18 @@ async function startGame() {
         }), import.meta.env.DEV);
     }
 
+    // 分享链接导入：先摘掉 hash（避免刷新重复弹层），再在首盘就绪后确认导入
+    const sharedRecord = decodeShareHash();
+    if (sharedRecord) {
+        history.replaceState(null, '', `${location.pathname}${location.search}`);
+    }
+
     await newBoard();
     renderHud();
+
+    if (sharedRecord) {
+        showImportConfirm(sharedRecord);
+    }
 
     setInterval(() => {
         renderHud();
