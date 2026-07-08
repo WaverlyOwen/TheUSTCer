@@ -252,9 +252,21 @@ export function initBackground(container) {
     container.appendChild(canvas);
     const network = new ParticleNetwork(canvas);
 
-    window.addEventListener('resize', () => {
+    function refit() {
+        if (canvas.width === container.offsetWidth &&
+            canvas.height === container.offsetHeight) {
+            return;
+        }
         network.ctx.clearRect(0, 0, canvas.width, canvas.height);
         sizeCanvas();
         network.createParticles();
-    });
+    }
+
+    // ResizeObserver 直接盯容器：macOS 全屏切换等场景不一定派发 window resize，
+    // 或派发时布局尚未到位，只靠 resize 事件会留下没铺满的暗条带
+    if (typeof ResizeObserver === 'function') {
+        new ResizeObserver(refit).observe(container);
+    } else {
+        window.addEventListener('resize', refit);
+    }
 }

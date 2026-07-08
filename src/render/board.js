@@ -99,6 +99,13 @@ export class BoardView {
         });
         this.dot.classList.add('dot');
         this.svg.appendChild(this.dot);
+        // 入场弹出用 WAAPI：不占 CSS animation 属性，播完即散，
+        // 不会与 hover/win/fail 的样式切换互相重启动画
+        this.dot.animate?.([
+            { transform: 'scale(0)' },
+            { transform: 'scale(1.3)', offset: 0.55 },
+            { transform: 'scale(1)' },
+        ], { duration: 450, easing: 'ease-out' });
 
         (this.container ?? document.getElementById('board-pan') ?? document.body).appendChild(this.svg);
     }
@@ -234,16 +241,21 @@ export class BoardView {
 
     winEffect() {
         this.userAnimator.snap();
-        this.userLine.classList.remove('fail');
-        this.userLine.classList.add('win');
+        // 起点圆圈与用户线同步变色
+        for (const element of [this.userLine, this.dot]) {
+            element.classList.remove('fail');
+            element.classList.add('win');
+        }
     }
 
     failEffect(details = null) {
         // 重新触发 CSS 动画；先还原上一次失败的高亮，避免连续失败叠加错乱
         this.clearFailFeedback();
         this.userLine.classList.remove('fail');
+        this.dot.classList.remove('fail');
         void this.userLine.getBoundingClientRect();
         this.userLine.classList.add('fail');
+        this.dot.classList.add('fail');
 
         if (details) {
             this.prepareFailHighlights(details);
@@ -252,6 +264,7 @@ export class BoardView {
 
         this.failTimers.push(setTimeout(() => {
             this.userLine.classList.remove('fail');
+            this.dot.classList.remove('fail');
             this.restoreFailHighlights();
         }, FAIL_FLASH_DURATION_MS));
     }
@@ -374,6 +387,7 @@ export class BoardView {
     destroy() {
         this.clearFailFeedback();
         this.userLine.classList.remove('fail');
+        this.dot.classList.remove('fail');
         this.userAnimator.destroy();
         this.answerAnimator.destroy();
         this.svg.remove();

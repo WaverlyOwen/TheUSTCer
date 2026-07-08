@@ -26,7 +26,7 @@
         /* Critical CSS：兜住样式模块注入前的首屏（dev 下 CSS 由 JS 注入，防止裸文本闪现） */
         :root { --bg: #ffffff; --fg: #111111; }
         :root[data-theme="dark"] { --bg: #101318; --fg: #eceef2; }
-        body, html { margin: 0; height: 100vh; overflow: hidden; font-family: "Jua", sans-serif; background-color: var(--bg); color: var(--fg); -webkit-user-select: none; user-select: none; }
+        body, html { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; font-family: "Jua", sans-serif; background-color: var(--bg); color: var(--fg); -webkit-user-select: none; user-select: none; }
         #WA { opacity: 0; }
         #toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; justify-content: space-between; padding: 10px 12px; box-sizing: border-box; }
         #toolbar .toolbar-side { display: flex; gap: 6px; }
@@ -34,8 +34,8 @@
         #toolbar svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
         #title { display: flex; align-items: flex-end; justify-content: center; position: fixed; top: max(12vh, 76px); width: 100%; height: 8.5vh; font-size: min(7.5vh, 14vw); }
         #GPA { position: fixed; top: 21.5vh; width: 100%; text-align: center; font-size: min(3vh, 8vw); }
-        #hud-meta { position: fixed; top: 24.5vh; width: 100%; text-align: center; font-size: min(2vh, 4.5vw); }
-        #hud-status { position: fixed; top: 27vh; width: 100%; text-align: center; font-size: min(1.8vh, 4vw); }
+        #hud-meta { position: fixed; top: 25.6vh; width: 100%; text-align: center; font-size: min(2vh, 4.5vw); }
+        #hud-status { position: fixed; top: 28vh; width: 100%; text-align: center; font-size: min(1.8vh, 4vw); }
     </style>
 </head>
 <body>

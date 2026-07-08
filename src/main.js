@@ -7,7 +7,7 @@ import './styles/ending.css';
 
 import { placementsByLetter } from './core/letters.js';
 import { generatePuzzle } from './core/generator.js';
-import { MAX_GPA_TEXT, gpaTextForLevel, sizeForLevel } from './core/level.js';
+import { MAX_GPA_TEXT, gpaTextForLevel, gpaValueForLevel, sizeForLevel } from './core/level.js';
 import {
     CHALLENGE_DIFFICULTIES,
     MODE_CHALLENGE,
@@ -151,6 +151,7 @@ async function startGame() {
     let endingPromise = null;
     let customRecord = null;   // 题目工坊：当前游玩的自定义题记录
     let editorOpen = false;
+    let tutorialOpen = false;
 
     function saveClassic() {
         if (persistClassic) {
@@ -351,7 +352,7 @@ async function startGame() {
     }
 
     function isInteractionBlocked() {
-        return editorOpen || shouldBlockInteraction({
+        return editorOpen || tutorialOpen || shouldBlockInteraction({
             transitionBusy,
             generating,
             currentMode,
@@ -370,29 +371,27 @@ async function startGame() {
         let meta = '';
         let status = '';
 
+        // 标题下方留白有限：每个模式只用「大字 + 一行小字」两行，信息用 · 串联
         switch (currentMode) {
             case MODE_TIMED: {
                 const cleared = timedRun?.ended ? timedRun.finalCleared ?? timedRun.cleared : timedRun?.cleared ?? 0;
                 primary = timedRun?.ended
                     ? `计时结束 · ${cleared} 关`
-                    : `计时模式 · ${formatDuration(timedRemainingMs(), false)}`;
-                meta = `已过 ${cleared} 关 · 当前 GPA ${gpaTextForLevel(timedRun?.level ?? 0)}`;
-                status = timedRun?.ended
-                    ? '打开模式菜单可以马上再来一轮'
-                    : `本轮时长 ${timedRun?.durationMinutes ?? timedDuration} 分钟`;
+                    : `计时 ${formatDuration(timedRemainingMs(), false)}`;
+                meta = timedRun?.ended
+                    ? '打开 ☰ 菜单可以马上再来一轮'
+                    : `已过 ${cleared} 关 · GPA ${gpaTextForLevel(timedRun?.level ?? 0)} · 本轮 ${timedRun?.durationMinutes ?? timedDuration} 分钟`;
                 break;
             }
             case MODE_CHALLENGE: {
                 const config = challengeRun?.config ?? challengeConfig;
-                primary = `挑战模式 · ${config.width}×${config.height}`;
-                meta = `${currentDifficultyLabel()} · 已解 ${challengeRun?.solved ?? 0} 题`;
-                status = clueSummary(config);
+                primary = `挑战 ${config.width}×${config.height}`;
+                meta = `${currentDifficultyLabel()} · 已解 ${challengeRun?.solved ?? 0} 题 · ${clueSummary(config)}`;
                 break;
             }
             case MODE_CUSTOM: {
                 primary = customRecord?.name ?? '自定义题';
-                meta = `题目工坊 · ${customRecord?.w}×${customRecord?.h}`;
-                status = customRecord?.answer ? '' : '本题未附带参考答案';
+                meta = `题目工坊 · ${customRecord?.w}×${customRecord?.h}${customRecord?.answer ? '' : ' · 无参考答案'}`;
                 break;
             }
             case MODE_CLASSIC:
@@ -975,8 +974,19 @@ async function startGame() {
     onThemeChange(() => rebuildBoardForTheme());
 
     setupMenu(document.getElementById('help'), swipeDetector, {
-        onOpen: pushPause,
-        onClose: popPause,
+        onOpen: () => {
+            pushPause();
+            tutorialOpen = true;
+        },
+        onClose: () => {
+            popPause();
+            tutorialOpen = false;
+        },
+        // 教程章节随进度解锁
+        getState: () => ({
+            gpaValue: gpaValueForLevel(classicRun.level),
+            unlocks,
+        }),
     });
     modeMenu = setupModeMenu(document.getElementById('mode'), {
         getState: buildModeMenuState,

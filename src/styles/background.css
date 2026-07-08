@@ -1,10 +1,8 @@
 @charset "utf-8";
+/* inset:0 四边锚定：全屏切换等场景 100vh 可能滞后于真实视口，锚定底边保证始终铺满 */
 .particle-network-animation {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100vh;
+  inset: 0;
   background-color: var(--bg);
   transition: background-color 0.25s ease;
 }
