@@ -1,7 +1,7 @@
 "use strict";
 
 import './styles/styles.css';
-import './styles/menu.css';
+import './styles/tutorial.css';
 import './styles/background.css';
 import './styles/ending.css';
 

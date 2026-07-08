@@ -25,7 +25,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 20 于 2026-04 EOL，Actions 已提示弃用；22 为当前 LTS
+          node-version: 22
           cache: npm
 
       - name: Install Dependencies

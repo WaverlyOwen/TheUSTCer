@@ -89,6 +89,26 @@ signMap
 14 - 02 : T
 14 - 03 : C
 
+20+ : 自定义色格（题目工坊）
+20 + idx - charIdx : 颜色/文字取题目记录 palette[idx] 的 { color, chars[charIdx] }
+判题时按"颜色键"与书院 07-10 统一分组（同色即同书院，见 core/puzzle-io.js colorKeyOf）
+
+路名编号扩展：
+路名号 >= 100 : 自定义路名，取题目记录 roadNames[编号 - 100]
+
+题目序列化记录（题目工坊 / #p= 分享链接，见 core/puzzle-io.js）：
+{
+  v: 1,
+  w, h,                        棋盘尺寸
+  sign,                        (w+1)×(h+1) 的 signMap
+  answer: moves[] | null,      参考答案移动序列（可无）
+  palette: [{color, chars[]}], 自定义色表
+  roadNames: [string],         自定义路名表
+  name, createdAt,
+  origin: 'generated' | 'custom' | 'imported'
+}
+分享链接 = 页面地址 + '#p=' + base64url(JSON)
+
 13 : 教学楼（预留，未实现）
 13 - 00 : 一教
 ###
