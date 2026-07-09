@@ -1,14 +1,13 @@
 "use strict";
 
 import { Path } from '../core/path.js';
+import { blankSign } from '../core/puzzle-io.js';
 import { escapeHtml } from '../lib/html.js';
 import { isDark, onThemeChange } from '../lib/theme.js';
-import { BoardView } from '../render/board.js';
+import { BoardView, fitSvgToBox } from '../render/board.js';
+import { BACK_ICON, CLOSE_ICON, LOCK_ICON } from './icons.js';
 import { TUTORIAL_CHAPTERS, chapterLocked } from './tutorial-data.js';
 
-const CLOSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>';
-const BACK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" /></svg>';
-const LOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.5" y="10.5" width="13" height="9" rx="2.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></svg>';
 const DRAG_THRESHOLD = 70;
 
 // 教程示例板的线色：不随机，深浅主题各配一套稳定蓝
@@ -103,7 +102,6 @@ const ART = {
     'workshop-share': art(`
         <path d="M46 42a10 10 0 0 1 0-14l8-8a10 10 0 0 1 14 14l-4 4" class="art-accent" />
         <path d="M74 30a10 10 0 0 1 0 14l-8 8a10 10 0 0 1-14-14l4-4" />
-        <path d="M14 24v24M10 44l4 4 4-4" opacity="0" />
         <path d="M96 36h14M105 30l6 6-6 6" />
     `),
     // 工坊：创作
@@ -167,6 +165,8 @@ export function setupMenu(button, swipeDetector, callbacks = {}) {
         });
         onKeyDown = (event) => {
             if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
                 close();
             } else if (chapterIndex >= 0 && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
                 event.preventDefault();
@@ -290,8 +290,7 @@ export function setupMenu(button, swipeDetector, callbacks = {}) {
     // 真实渲染：用游戏自己的 BoardView 画示例板，并重放示例路径
     function renderBoard(spec) {
         const figure = root.querySelector('[data-role="figure"]');
-        const sign = Array.from({ length: spec.w + 1 }, () =>
-            Array.from({ length: spec.h + 1 }, () => [[0, 0], [0, 0], [0, 0]]));
+        const sign = blankSign(spec.w, spec.h);
         for (const [i, j, type, sub] of spec.cells) {
             sign[i][j][2] = [type, sub];
         }
@@ -299,17 +298,11 @@ export function setupMenu(button, swipeDetector, callbacks = {}) {
             sign[i][j][orient] = [1, idx];
         }
         board = new BoardView(
-            { size: [spec.w, spec.h], sign, answer: null, palette: [], roadNames: [] },
+            { size: [spec.w, spec.h], sign, answer: null, palette: [], roadNames: [], blockedEdges: spec.blocked ?? [] },
             tutorialLineColors(),
             { container: figure, svgId: 'tutorial-board' },
         );
-        // 适配图区大小（覆盖游戏内布局的默认尺寸）
-        const ratio = ((spec.w + 2) * 50) / ((spec.h + 1) * 50);
-        const availWidth = figure.clientWidth - 8;
-        const availHeight = figure.clientHeight - 8;
-        const width = Math.min(availWidth, availHeight * ratio);
-        board.svg.style.width = `${width}px`;
-        board.svg.style.height = `${width / ratio}px`;
+        fitSvgToBox(board.svg, [spec.w, spec.h], figure);
 
         if (spec.moves) {
             const path = new Path([spec.w, spec.h]);

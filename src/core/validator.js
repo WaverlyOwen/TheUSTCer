@@ -1,10 +1,10 @@
 "use strict";
 
-import { matchesLetter } from './letters.js';
+import { matchesBuilding, matchesCombo } from './buildings.js';
 import { colorKeyOf } from './puzzle-io.js';
 
 // 判题并返回违规明细：
-//   cells — 违规判定格（书院颜色冲突/红专理实不成对/字母区域形状不符），供反色高亮
+//   cells — 违规判定格（书院颜色冲突/红专理实不成对/教学楼区域形状不符），供反色高亮
 //   roads — 未被穿过的黑色路名 [i, j, orient]（0 横路 1 竖路），供闪红
 // palette：自定义题的调色板，书院冲突按颜色键统一分组（书院四色与自定义色同权）
 export function checkSolution(sign, size, userPath, palette = []) {
@@ -15,7 +15,7 @@ export function checkSolution(sign, size, userPath, palette = []) {
     const groupCount = userPath.group.length;
     const collegeCells = Array.from({ length: groupCount }, () => []);
     const pairCells = Array.from({ length: groupCount }, () => [[], [], [], []]);
-    const letterCells = Array.from({ length: groupCount }, () => []);
+    const buildingCells = Array.from({ length: groupCount }, () => []);
     const regionCells = Array.from({ length: groupCount }, () => []);
     const badRoads = [];
     const barrier = userPath.createBarrier();
@@ -30,8 +30,8 @@ export function checkSolution(sign, size, userPath, palette = []) {
                 collegeCells[group].push({ cell: [i, j], colorKey });
             } else if (type === 11 || type === 12) {
                 pairCells[group][(type - 11) * 2 + sign[i][j][2][1]].push([i, j]);
-            } else if (type === 14) {
-                letterCells[group].push({ cell: [i, j], letterIndex: sign[i][j][2][1] });
+            } else if (type === 13) {
+                buildingCells[group].push({ cell: [i, j], buildingIndex: sign[i][j][2][1] });
             }
 
             if (sign[i][j][0][0] && !barrier[i][j][0]) {
@@ -66,10 +66,18 @@ export function checkSolution(sign, size, userPath, palette = []) {
             }
         }
 
-        // 字母区块：所在区域必须与字母形状全等（固定朝向，不允许旋转/镜像）
-        for (const { cell, letterIndex } of letterCells[group]) {
-            if (!matchesLetter(regionCells[group], letterIndex)) {
+        // 教学楼区块：单楼区域须与该楼形状全等；多楼同区 = 组合题，
+        // 区域须恰为这些楼的某种连通拼合（同楼重复视为违规）
+        if (buildingCells[group].length === 1) {
+            const { cell, buildingIndex } = buildingCells[group][0];
+            if (!matchesBuilding(regionCells[group], buildingIndex)) {
                 badCells.push(cell);
+            }
+        } else if (buildingCells[group].length > 1) {
+            const indices = buildingCells[group].map(entry => entry.buildingIndex);
+            const distinct = new Set(indices).size === indices.length;
+            if (!distinct || !matchesCombo(regionCells[group], indices)) {
+                badCells.push(...buildingCells[group].map(entry => entry.cell));
             }
         }
     }

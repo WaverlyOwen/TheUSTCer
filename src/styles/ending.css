@@ -247,6 +247,10 @@
     color: #b04663;
 }
 
+.milestone-panel.violet .milestone-title {
+    color: #7a5bb0;
+}
+
 @media (max-width: 720px) {
     .ending-gpa {
         top: 29%;

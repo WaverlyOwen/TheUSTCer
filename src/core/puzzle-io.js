@@ -45,7 +45,22 @@ export const CELL_NAMES = [
 ];
 
 export const CELL_COLORS = ["#e69138", "#4272b8", "#4a9e6b", "#8e63b5", "#d64545", "#4272b8"];
-export const LETTER_CELL_COLOR = "#3a3f4b";
+export const BUILDING_CELL_COLOR = "#3a3f4b";
+
+// 阻断边三元组 [ex, ey, axis] → Path 的 edgeKey 集合（axis 0 横边 1 竖边）
+export function blockedEdgeSet(blockedEdges, h) {
+    if (!blockedEdges?.length) {
+        return null;
+    }
+    const stride = h + 1;
+    return new Set(blockedEdges.map(([ex, ey, axis]) => (ex * stride + ey) * 2 + axis));
+}
+
+// (w+1)×(h+1) 的空白 sign 矩阵（编辑器新建 / 教程示例板共用）
+export function blankSign(w, h) {
+    return Array.from({ length: w + 1 }, () =>
+        Array.from({ length: h + 1 }, () => [[0, 0], [0, 0], [0, 0]]));
+}
 
 // 自定义色底上的字自动选黑/白，保证可读
 export function readableTextColor(color) {
@@ -82,6 +97,7 @@ export function serializePuzzle(puzzle, { name = '', origin = 'generated' } = {}
         answer: puzzle.answer?.queue ? [...puzzle.answer.queue] : null,
         palette: puzzle.palette ?? [],
         roadNames: puzzle.roadNames ?? [],
+        blockedEdges: puzzle.blockedEdges ?? [],
         name: name || `${puzzle.size[0]}×${puzzle.size[1]} 题目`,
         createdAt: Date.now(),
         origin,
@@ -107,6 +123,9 @@ export function deserializePuzzle(record) {
         answer,
         palette: record.palette ?? [],
         roadNames: record.roadNames ?? [],
+        blockedEdges: record.blockedEdges ?? [],
+        // 与生成器产物保持同构（楼标记只在生成期有意义，恢复题面为空表）
+        buildings: [],
     };
 }
 
@@ -139,9 +158,18 @@ export function validateRecord(record) {
             return false;
         }
     }
+    if (record.blockedEdges !== undefined) {
+        if (!Array.isArray(record.blockedEdges) ||
+            !record.blockedEdges.every(edge => Array.isArray(edge) && edge.length === 3 &&
+                edge.every(Number.isInteger) &&
+                edge[0] >= 0 && edge[0] <= w && edge[1] >= 0 && edge[1] <= h &&
+                (edge[2] === 0 || edge[2] === 1))) {
+            return false;
+        }
+    }
     const paletteLength = record.palette?.length ?? 0;
     const roadNamesLength = record.roadNames?.length ?? 0;
-    const validCellType = (t) => t === 0 || (t >= 7 && t <= 12) || t === 14 ||
+    const validCellType = (t) => t === 0 || (t >= 7 && t <= 12) || t === 13 ||
         (t >= CUSTOM_TYPE_BASE && t < CUSTOM_TYPE_BASE + paletteLength);
     const validRoadName = (orient, idx) =>
         (idx >= 0 && idx < ROAD_NAMES[orient].length) ||

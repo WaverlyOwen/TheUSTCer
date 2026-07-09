@@ -1,6 +1,6 @@
 "use strict";
 
-import { LETTER_NAMES } from '../core/letters.js';
+import { BUILDING_NAMES, BUILDING_TITLES } from '../core/buildings.js';
 import { Path } from '../core/path.js';
 import {
     CELL_COLORS,
@@ -10,6 +10,7 @@ import {
     MAX_EDITOR_SIZE,
     MIN_EDITOR_SIZE,
     ROAD_NAMES,
+    blankSign,
 } from '../core/puzzle-io.js';
 import { attachKeyboard } from '../input/keyboard.js';
 import { attachPointer } from '../input/pointer.js';
@@ -18,10 +19,10 @@ import { escapeHtml } from '../lib/html.js';
 import { getThemeColors, random } from '../lib/random.js';
 import { getSensitivity } from '../lib/settings.js';
 import { isDark, onThemeChange } from '../lib/theme.js';
-import { BoardView } from '../render/board.js';
+import { BoardView, fitSvgToBox } from '../render/board.js';
+import { CLOSE_ICON } from './icons.js';
 
 const FORMAT_VERSION = 1;
-const CLOSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>';
 
 // 书院四色类型码（7-10）；自定义色走 20+palette 下标。
 // 颜色与书院对应：橙=光启·仲英（少年班），蓝=冲之（数学/工程/管理），
@@ -29,7 +30,7 @@ const CLOSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12
 const COLLEGE_TYPES = [7, 8, 9, 10];
 const TYPE_LABELS = {
     7: '光启·仲英', 8: '冲之', 9: '时珍', 10: '守敬',
-    11: '红专', 12: '理实', 14: '字母',
+    11: '红专', 12: '理实', 13: '教学楼',
 };
 const TYPE_HINTS = {
     7: '少年班学院 · 少',
@@ -37,11 +38,6 @@ const TYPE_HINTS = {
     9: '生物 / 信息 / 计算机 · 网微计生信',
     10: '物理 / 化学等 · 环核地化物',
 };
-
-function blankSign(w, h) {
-    return Array.from({ length: w + 1 }, () =>
-        Array.from({ length: h + 1 }, () => [[0, 0], [0, 0], [0, 0]]));
-}
 
 function cloneSign(sign) {
     return sign.map(column => column.map(entry => entry.map(part => [...part])));
@@ -216,18 +212,9 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
 
     function fitBoard() {
         const host = boardHost();
-        if (!host || !board) {
-            return;
+        if (host && board) {
+            fitSvgToBox(board.svg, [w, h], host);
         }
-        const availWidth = host.clientWidth - 8;
-        const availHeight = host.clientHeight - 8;
-        if (availWidth <= 0 || availHeight <= 0) {
-            return;
-        }
-        const ratio = ((w + 2) * 50) / ((h + 1) * 50);
-        const width = Math.min(availWidth, availHeight * ratio);
-        board.svg.style.width = `${width}px`;
-        board.svg.style.height = `${width / ratio}px`;
     }
 
     function rebuildBoard() {
@@ -367,8 +354,8 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         if (t >= 7 && t <= 12) {
             return CELL_NAMES[t - 7];
         }
-        if (t === 14) {
-            return LETTER_NAMES;
+        if (t === 13) {
+            return BUILDING_NAMES;
         }
         return [];
     }
@@ -396,7 +383,7 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         }
         pills.push(`<button type="button" class="mode-pill swatch${selected(11)}" data-cell-type="11" style="--swatch: ${CELL_COLORS[4]}">红专</button>`);
         pills.push(`<button type="button" class="mode-pill swatch${selected(12)}" data-cell-type="12" style="--swatch: ${CELL_COLORS[5]}">理实</button>`);
-        pills.push(`<button type="button" class="mode-pill${selected(14)}" data-cell-type="14">字母 USTC</button>`);
+        pills.push(`<button type="button" class="mode-pill${selected(13)}" data-cell-type="13" title="${BUILDING_TITLES.join(' / ')}">教学楼</button>`);
         palette.forEach((entry, index) => {
             const t = CUSTOM_TYPE_BASE + index;
             pills.push(`
@@ -419,7 +406,7 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         const buttons = options.map((char, index) => `
             <button type="button" class="mode-pill${pendingType[1] === index ? ' selected' : ''}"
                 data-cell-char="${index}">${escapeHtml(char)}</button>`).join('');
-        const customizer = pendingType[0] === 11 || pendingType[0] === 12 || pendingType[0] === 14
+        const customizer = pendingType[0] === 11 || pendingType[0] === 12 || pendingType[0] === 13
             ? ''
             : `
                 <div class="editor-inline-add">

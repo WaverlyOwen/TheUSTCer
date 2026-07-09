@@ -276,19 +276,29 @@ export function playEnding({ onVisibilityChange = null } = {}) {
     });
 }
 
-// GPA 显示区旁的 🎆 重播按钮，达成过 4.30 后常驻
+// 左上角的烟花重播按钮，达成过 4.30 后常驻（线条图标与顶栏一致）
 export function showReplayButton(replay = () => playEnding()) {
     if (document.getElementById('ending-replay-button')) {
         return;
     }
     const button = document.createElement('button');
     button.id = 'ending-replay-button';
+    button.className = 'tool-button';
     button.title = '重温 4.3 时刻';
-    button.textContent = '🎆';
+    button.setAttribute('aria-label', '重温 4.3 时刻');
+    // 烟花线条图标：中心光点 + 放射线 + 端点火花
+    button.innerHTML = `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="1.4" />
+            <path d="M12 4.5v3M12 16.5v3M4.5 12h3M16.5 12h3M6.7 6.7l2.1 2.1M15.2 15.2l2.1 2.1M17.3 6.7l-2.1 2.1M8.8 15.2l-2.1 2.1" />
+            <path d="M19.5 4.5v0.01M4.5 19.5v0.01M4.5 4.5v0.01M19.5 19.5v0.01" />
+        </svg>`;
     button.addEventListener('click', () => {
         void replay();
     });
-    document.body.appendChild(button);
+    // 挂进顶栏左侧胶囊、紧跟 ☰ 菜单按钮
+    const menuButton = document.getElementById('mode');
+    (menuButton?.parentElement ?? document.body).appendChild(button);
 }
 
 export function playMilestoneCelebration({

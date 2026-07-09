@@ -15,6 +15,7 @@
     background: var(--backdrop);
 }
 
+/* 毛玻璃底/描边/圆角来自 styles.css 的统一面板规则 */
 .tutorial-panel {
     position: absolute;
     top: 50%;
@@ -25,12 +26,6 @@
     width: min(64vh, calc(100vw - (var(--screen-edge-gap) * 2)));
     max-height: calc(100svh - 8vh);
     padding: 2.2vh 2.4vh;
-    background: var(--panel-bg);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    box-shadow: 0 2vh 7vh var(--shadow);
     box-sizing: border-box;
     overscroll-behavior: none;
 }

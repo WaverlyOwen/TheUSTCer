@@ -2,7 +2,7 @@
 
 import { PathAnimator } from './animator.js';
 import { boardPalette } from '../lib/theme.js';
-import { LETTER_NAMES } from '../core/letters.js';
+import { BUILDING_MASKS, BUILDING_NAMES } from '../core/buildings.js';
 import {
     CELL_NAMES,
     CUSTOM_ROAD_BASE,
@@ -22,6 +22,20 @@ function svgElement(tag, attributes = {}) {
         element.setAttribute(name, value);
     }
     return element;
+}
+
+// 把题板 SVG 按纵横比塞进宿主容器（编辑器/教程的静态展示板共用；
+// 游戏主板走 applyScale + viewport 的矢量缩放，不用这个）
+export function fitSvgToBox(svg, [w, h], host, inset = 8) {
+    const availWidth = host.clientWidth - inset;
+    const availHeight = host.clientHeight - inset;
+    if (availWidth <= 0 || availHeight <= 0) {
+        return;
+    }
+    const ratio = ((w + 2) * 50) / ((h + 1) * 50);
+    const width = Math.min(availWidth, availHeight * ratio);
+    svg.style.width = `${width}px`;
+    svg.style.height = `${width / ratio}px`;
 }
 
 function borderD(size) {
@@ -66,10 +80,11 @@ export class BoardView {
         const cellG = svgElement('g');
         const textG = svgElement('g');
         const roadG = svgElement('g');
+        this.blockedG = svgElement('g');
         this.drawSigns(cellG, textG, roadG);
+        this.drawBlockedEdges(this.blockedG);
         this.svg.appendChild(cellG);
         this.svg.appendChild(textG);
-        this.svg.appendChild(roadG);
 
         this.answerLine = svgElement('path', {
             stroke: theme.lightColor,
@@ -86,6 +101,10 @@ export class BoardView {
         this.userLine.classList.add('user-line');
         this.svg.appendChild(this.answerLine);
         this.svg.appendChild(this.userLine);
+        // 阻断塞与路名层都压在路径线之上：线头探入时恰好没入塞子边缘，
+        // 呈现"插进去顶住"的贴合观感
+        this.svg.appendChild(this.blockedG);
+        this.svg.appendChild(roadG);
         this.userAnimator = new PathAnimator(this.userLine);
         this.answerAnimator = new PathAnimator(this.answerLine);
 
@@ -166,11 +185,86 @@ export class BoardView {
         }
         const road = svgElement('text', attributes);
         road.setAttribute('fill', this.palette.roadText);
+        // 底色光晕：叠在路径线上也保持可读
+        road.setAttribute('paint-order', 'stroke');
+        road.setAttribute('stroke', this.palette.boardFill);
+        road.setAttribute('stroke-width', '2');
+        road.setAttribute('stroke-linejoin', 'round');
         road.textContent = type[1] >= CUSTOM_ROAD_BASE
             ? (this.puzzle.roadNames?.[type[1] - CUSTOM_ROAD_BASE] ?? '')
             : (ROAD_NAMES[type[0] - 5][type[1]] ?? '');
         roadG.appendChild(road);
         this.roadTexts.set(`${position[0]},${position[1]},${type[0] === 6 ? 1 : 0}`, road);
+    }
+
+    // 通道阻断：不动方块、不连接两侧——通道中段一枚"束腰塞"：
+    // 两条向内凹的半圆弧作左右边界，弧间窄条用描边色填实。
+    // 弧半径 = 通道半宽，用户路径的圆头能探进来、恰好嵌进凹弧里，但无法通过。
+    drawBlockedEdges(cellG) {
+        const r = 5;            // 弧半径 = 通道半宽，贴合 8px 圆头路径
+        const apartness = 6;    // 两弧的弦离通道中点的距离
+        for (const [ex, ey, axis] of this.puzzle.blockedEdges ?? []) {
+            let d;
+            if (axis === 0) {
+                // 横向通道（上下格之间）：左右两侧凹弧，中间填实
+                const yTop = 50 * ey;
+                const yBottom = 10 + 50 * ey;
+                const mid = 30 + 50 * ex;
+                d = `M ${mid - apartness} ${yTop} ` +
+                    `A ${r} ${r} 0 0 1 ${mid - apartness} ${yBottom} ` +
+                    `L ${mid + apartness} ${yBottom} ` +
+                    `A ${r} ${r} 0 0 1 ${mid + apartness} ${yTop} Z`;
+            } else {
+                // 纵向通道（左右格之间）：上下两侧凹弧，中间填实
+                const xLeft = 50 * ex;
+                const xRight = 10 + 50 * ex;
+                const mid = 30 + 50 * ey;
+                d = `M ${xLeft} ${mid - apartness} ` +
+                    `A ${r} ${r} 0 0 0 ${xRight} ${mid - apartness} ` +
+                    `L ${xRight} ${mid + apartness} ` +
+                    `A ${r} ${r} 0 0 0 ${xLeft} ${mid + apartness} Z`;
+            }
+            cellG.appendChild(svgElement('path', {
+                d,
+                fill: this.palette.stroke,
+                stroke: this.palette.stroke,
+                'stroke-width': 2,
+                'stroke-linejoin': 'round',
+            }));
+        }
+    }
+
+    // 教学楼形状小图：等大等色的描边小方块按掩码排布，居中且不出格
+    buildingGlyph(position, buildingIndex) {
+        const mask = BUILDING_MASKS[buildingIndex];
+        const rows = mask.length;
+        const cols = Math.max(...mask.map(row => row.length));
+        const side = 9;
+        const gap = 2.5;
+        const blockW = cols * side + (cols - 1) * gap;
+        const blockH = rows * side + (rows - 1) * gap;
+        const originX = 10 + 50 * position[0] + (40 - blockW) / 2;
+        const originY = 10 + 50 * position[1] + (40 - blockH) / 2;
+        const glyph = svgElement('g');
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < mask[row].length; col++) {
+                if (mask[row][col] !== 'x') {
+                    continue;
+                }
+                glyph.appendChild(svgElement('rect', {
+                    x: originX + col * (side + gap),
+                    y: originY + row * (side + gap),
+                    width: side,
+                    height: side,
+                    rx: 2,
+                    ry: 2,
+                    fill: 'none',
+                    stroke: this.palette.buildingShape,
+                    'stroke-width': 1.6,
+                }));
+            }
+        }
+        return glyph;
     }
 
     drawCell(cellG, textG, position, type) {
@@ -200,12 +294,23 @@ export class BoardView {
                 text.textContent = entry?.chars?.[type[1]] ?? '';
                 text.setAttribute('fill', readableTextColor(color));
                 cell.setAttribute('fill', color);
-            } else if (type[0] === 14) {
-                // USTC 字母区块：所在区域必须与字母形状全等
-                text.textContent = LETTER_NAMES[type[1]];
+            } else if (type[0] === 13) {
+                // 教学楼区块：淡灰描边小方块拼出该楼的形状作背景，数字为前景。
+                // 文字带一圈底色描边（paint-order），叠在形状上也保持清晰
+                text.textContent = BUILDING_NAMES[type[1]];
                 text.setAttribute('font-weight', 'bold');
-                text.setAttribute('fill', 'white');
-                cell.setAttribute('fill', this.palette.letterCell);
+                text.setAttribute('fill', this.palette.buildingText);
+                text.setAttribute('paint-order', 'stroke');
+                text.setAttribute('stroke', this.palette.blankCell);
+                text.setAttribute('stroke-width', '5');
+                text.setAttribute('stroke-linejoin', 'round');
+                cell.setAttribute('fill', this.palette.blankCell);
+                cellG.appendChild(cell);
+                cellG.appendChild(this.buildingGlyph(position, type[1]));
+                textG.appendChild(text);
+                this.cellRects[position[0]][position[1]] = cell;
+                this.cellTexts[position[0]][position[1]] = text;
+                return;
             } else if (type[0] < 11) {
                 text.textContent = CELL_NAMES[type[0] - 7][type[1]];
                 text.setAttribute('fill', 'white');
@@ -239,23 +344,29 @@ export class BoardView {
         this.answerAnimator.reset();
     }
 
+    // 判定反馈同时作用于用户线和起点圆圈（外圈颜色随线走）
+    pathElements() {
+        return [this.userLine, this.dot];
+    }
+
+    setPathFeedback(name, active) {
+        for (const element of this.pathElements()) {
+            element.classList.toggle(name, active);
+        }
+    }
+
     winEffect() {
         this.userAnimator.snap();
-        // 起点圆圈与用户线同步变色
-        for (const element of [this.userLine, this.dot]) {
-            element.classList.remove('fail');
-            element.classList.add('win');
-        }
+        this.setPathFeedback('fail', false);
+        this.setPathFeedback('win', true);
     }
 
     failEffect(details = null) {
         // 重新触发 CSS 动画；先还原上一次失败的高亮，避免连续失败叠加错乱
         this.clearFailFeedback();
-        this.userLine.classList.remove('fail');
-        this.dot.classList.remove('fail');
+        this.setPathFeedback('fail', false);
         void this.userLine.getBoundingClientRect();
-        this.userLine.classList.add('fail');
-        this.dot.classList.add('fail');
+        this.setPathFeedback('fail', true);
 
         if (details) {
             this.prepareFailHighlights(details);
@@ -263,8 +374,7 @@ export class BoardView {
         }
 
         this.failTimers.push(setTimeout(() => {
-            this.userLine.classList.remove('fail');
-            this.dot.classList.remove('fail');
+            this.setPathFeedback('fail', false);
             this.restoreFailHighlights();
         }, FAIL_FLASH_DURATION_MS));
     }
@@ -300,7 +410,7 @@ export class BoardView {
                     },
                 });
             } else {
-                const flashFill = this.palette.letterCell;
+                const flashFill = this.palette.buildingCell;
                 this.failHighlights.push({
                     set(active) {
                         rect.setAttribute('fill', active ? flashFill : rectFill);
@@ -386,8 +496,7 @@ export class BoardView {
 
     destroy() {
         this.clearFailFeedback();
-        this.userLine.classList.remove('fail');
-        this.dot.classList.remove('fail');
+        this.setPathFeedback('fail', false);
         this.userAnimator.destroy();
         this.answerAnimator.destroy();
         this.svg.remove();

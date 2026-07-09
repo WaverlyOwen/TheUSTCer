@@ -1,5 +1,18 @@
 "use strict";
 
+// 探入深度：撞上阻断通道/已有路径时，线头视觉探入多少步（0~1，越大越深）。
+// 直行段与转弯段的绘制几何不同，分开调：
+export const POKE_DEPTH_STRAIGHT = 0.7;
+export const POKE_DEPTH_TURN = 0.65;
+
+// 按"是否延续上一步方向"选择探入深度
+export function pokeDepth(path, direction) {
+    const last = path.queue[path.distance - 1];
+    return last === undefined || last === direction
+        ? POKE_DEPTH_STRAIGHT
+        : POKE_DEPTH_TURN;
+}
+
 // 方向编码：0 右(+x) 1 下(+y) 2 左(-x) 3 上(-y)
 const DIRECTIONS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 // headArcSafe 用的 8 邻域环（循环序）
@@ -95,6 +108,23 @@ export class Path {
             return false;
         }
         return !this.edgeBlocked(this.x, this.y, direction);
+    }
+
+    // 画线端"探入即止"的判定：因阻断通道、或通道对面已有路径占用而走不动
+    // （边界外/出口不响应）。两种情况给同样的探入深度反馈
+    pokeBlocked(direction) {
+        const [w, h] = this.size;
+        const [newX, newY] = movePoint([this.x, this.y], direction, 1);
+        if (newX === w + 1 && newY === h) {
+            return false;
+        }
+        if (newX < 0 || newX > w || newY < 0 || newY > h) {
+            return false;
+        }
+        if (this.map[this.index(newX, newY)]) {
+            return true;
+        }
+        return this.edgeBlocked(this.x, this.y, direction);
     }
 
     step(direction) {

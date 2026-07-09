@@ -1,5 +1,7 @@
 "use strict";
 
+import { pokeDepth } from '../core/path.js';
+
 // 鼠标/触摸画线：从路径头部（初始为起点圆点）按住拖动。
 // 线头被指针"吸引"——指针在两节点之间时以 partial 形式喂给动画器画出半截线，
 // 越过 COMMIT 阈值才真正 step/back 提交，往返有迟滞不会抖动。
@@ -66,15 +68,21 @@ export function attachPointer(svg, userPath, callbacks) {
                         continue;
                     }
                 }
+                // 大幅拖进阻断通道：线头钉在入口弧上
+                if (userPath.pokeBlocked(dir)) {
+                    partial = { type: 'extend', dir, f: pokeDepth(userPath, dir) };
+                }
                 break;
             }
 
-            // 阈值以内：只做视觉吸引
+            // 阈值以内：只做视觉吸引；阻断通道允许探入一小截（停在入口弧）
             if (magnitude > DEADZONE) {
                 if (isReverse(dir)) {
                     partial = { type: 'retract', f: magnitude };
                 } else if (userPath.canStep(dir)) {
                     partial = { type: 'extend', dir, f: Math.min(magnitude, 0.999) };
+                } else if (userPath.pokeBlocked(dir)) {
+                    partial = { type: 'extend', dir, f: Math.min(magnitude, pokeDepth(userPath, dir)) };
                 }
             }
             break;

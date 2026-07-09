@@ -35,7 +35,6 @@
         #title { display: flex; align-items: flex-end; justify-content: center; position: fixed; top: max(12vh, 76px); width: 100%; height: 8.5vh; font-size: min(7.5vh, 14vw); }
         #GPA { position: fixed; top: 21.5vh; width: 100%; text-align: center; font-size: min(3vh, 8vw); }
         #hud-meta { position: fixed; top: 25.6vh; width: 100%; text-align: center; font-size: min(2vh, 4.5vw); }
-        #hud-status { position: fixed; top: 28vh; width: 100%; text-align: center; font-size: min(1.8vh, 4vw); }
     </style>
 </head>
 <body>
@@ -67,8 +66,21 @@
     <div id="title">The USTCer</div>
     <div id="GPA"></div>
     <div id="hud-meta"></div>
-    <div id="hud-status"></div>
     <div id="WA" style="opacity: 0">WRONG ANSWER</div>
     <script type="module" src="/src/main.js"></script>
+    <script>
+        // 访问量统计（GoatCounter，免费无 Cookie）：只在线上启用，本地开发不上报。
+        // 查看统计：https://theustcer.goatcounter.com（需先在 goatcounter.com 注册，站点代码填 theustcer）
+        (function () {
+            if (/^(localhost|127\.|0\.0\.0\.0|192\.168\.)/.test(location.hostname)) {
+                return;
+            }
+            var counter = document.createElement('script');
+            counter.async = true;
+            counter.src = 'https://gc.zgo.at/count.js';
+            counter.dataset.goatcounter = 'https://theustcer.goatcounter.com/count';
+            document.head.appendChild(counter);
+        })();
+    </script>
 </body>
 </html>

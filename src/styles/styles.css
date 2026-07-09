@@ -264,27 +264,17 @@ input, textarea, select {
     animation: gpa-bump 0.5s ease;
 }
 
-#hud-meta,
-#hud-status {
+#hud-meta {
     position: fixed;
+    top: 25.6vh;
     width: 100%;
     text-align: center;
     font-weight: normal;
     font-style: normal;
     pointer-events: none;
     transition: opacity 0.3s ease;
-}
-
-#hud-meta {
-    top: 25.6vh;
     font-size: min(2vh, 4.5vw);
     color: var(--fg-meta);
-}
-
-#hud-status {
-    top: 28vh;
-    font-size: min(1.8vh, 4vw);
-    color: var(--fg-muted);
 }
 
 @keyframes gpa-bump {
@@ -417,6 +407,22 @@ text {
     animation: fail-pulse 1.1s ease;
 }
 
+/* ===== 毛玻璃面板（菜单/教程/编辑器/弹窗/加载统一设计语言） ===== */
+
+.mode-menu-panel,
+.import-panel,
+.editor-panel,
+.editor-dialog,
+.loading-panel,
+.tutorial-panel {
+    background: var(--panel-bg);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--panel-border);
+    border-radius: 20px;
+    box-shadow: 0 2vh 7vh var(--shadow);
+}
+
 /* ===== 通用按钮 ===== */
 
 button {
@@ -428,23 +434,6 @@ button {
     background-color: var(--panel-solid);
     color: var(--fg);
     cursor: pointer;
-}
-
-#ending-replay-button {
-    position: fixed;
-    top: calc(62px + env(safe-area-inset-top));
-    left: 12px;
-    width: 42px;
-    height: 42px;
-    padding: 0;
-    border-radius: 50%;
-    font-size: 20px;
-    line-height: 1;
-    z-index: 15;
-    border: 1px solid var(--toolbar-border);
-    background: var(--toolbar-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
 }
 
 /* ===== 加载遮罩 ===== */
@@ -472,12 +461,6 @@ button {
     gap: 1.8vh;
     padding: 3vh 3.4vh;
     min-width: min(72vw, 34vh);
-    background: var(--panel-bg);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    box-shadow: 0 2vh 6vh var(--shadow);
 }
 
 .loading-spinner {
@@ -516,7 +499,6 @@ button {
     background: var(--backdrop);
 }
 
-/* 与顶栏同一套毛玻璃语言：半透明底 + backdrop-blur + 细描边 */
 .mode-menu-panel {
     position: absolute;
     top: 8vh;
@@ -526,12 +508,6 @@ button {
     max-height: calc(100svh - 16vh);
     overflow-y: auto;
     padding: 2.4vh;
-    background: var(--panel-bg);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    box-shadow: 0 2vh 7vh var(--shadow);
     box-sizing: border-box;
     /* 滚到底不再橡皮筋回弹（回弹会露出面板外的空白） */
     overscroll-behavior: none;
@@ -805,12 +781,6 @@ button {
     transform: translate(-50%, -50%);
     width: min(52vh, calc(100vw - (var(--screen-edge-gap) * 2)));
     padding: 2.4vh;
-    background: var(--panel-bg);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    box-shadow: 0 2vh 7vh var(--shadow);
     box-sizing: border-box;
 }
 
@@ -846,12 +816,6 @@ button {
     flex-direction: column;
     gap: 1.2vh;
     padding: 1.8vh 2vh calc(1.8vh + env(safe-area-inset-bottom));
-    background: var(--panel-bg);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    box-shadow: 0 2vh 7vh var(--shadow);
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -963,12 +927,6 @@ button {
     max-height: calc(100svh - 6vh);
     display: flex;
     flex-direction: column;
-    background: var(--panel-bg);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    box-shadow: 0 2vh 7vh var(--shadow);
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -1120,10 +1078,6 @@ button {
 
     #hud-meta {
         top: 24vh;
-    }
-
-    #hud-status {
-        top: 26.5vh;
         padding-inline: 6vw;
         box-sizing: border-box;
     }

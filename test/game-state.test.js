@@ -4,9 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-    MAX_CHALLENGE_LETTER_AREA,
-    TIMED_START_LEVEL,
-    challengeLettersSupported,
+        TIMED_START_LEVEL,
+    challengeBuildingsSupported,
     challengeGenerationOptions,
     formatDuration,
     MODE_CLASSIC,
@@ -22,7 +21,7 @@ test('normalizeChallengeConfig keeps at least one clue family enabled', () => {
     const config = normalizeChallengeConfig({
         width: 99,
         height: 2,
-        letters: false,
+        buildings: false,
         colleges: false,
         pairs: false,
         roads: false,
@@ -35,26 +34,20 @@ test('normalizeChallengeConfig keeps at least one clue family enabled', () => {
     assert.equal(config.difficulty, 'standard');
 });
 
-test('normalizeChallengeConfig disables letters when the board is too large', () => {
-    const config = normalizeChallengeConfig({
-        width: 23,
-        height: 22,
-        letters: true,
-        colleges: false,
-        pairs: true,
-        roads: false,
-    });
+test('教学楼在大盘保持可用，且旧存档 letters 字段迁移为 buildings', () => {
+    const big = normalizeChallengeConfig({ width: 36, height: 36, letters: true });
+    assert.equal(challengeBuildingsSupported(big), true);
+    assert.equal(big.buildings, true);
 
-    assert.equal(challengeLettersSupported(config), false);
-    assert.equal(config.width * config.height > MAX_CHALLENGE_LETTER_AREA, true);
-    assert.equal(config.letters, false);
+    const legacyOff = normalizeChallengeConfig({ width: 10, height: 10, letters: false, colleges: true });
+    assert.equal(legacyOff.buildings, false);
 });
 
 test('challengeGenerationOptions follows clue toggles and difficulty', () => {
     const config = normalizeChallengeConfig({
         width: 12,
         height: 8,
-        letters: true,
+        buildings: true,
         colleges: false,
         pairs: true,
         roads: false,
@@ -62,27 +55,25 @@ test('challengeGenerationOptions follows clue toggles and difficulty', () => {
     });
     const options = challengeGenerationOptions(config);
 
-    assert.equal(options.letterMode, 'force');
-    assert.equal(options.requireAllLetterFamilies, false);
-    assert.equal(options.forceLetterCount, 1);
+    assert.equal(options.buildingMode, 'force');
+    assert.equal(options.requireAllBuildingFamilies, false);
+    assert.equal(options.forceBuildingCount, 2);
     assert.equal(options.collegesEnabled, false);
     assert.equal(options.pairsMode, 'dense');
     assert.equal(options.roadsMode, 'off');
     assert.equal(options.localCoverageWindow, 3);
 });
 
-test('challengeGenerationOptions never advertises letters when size rules disallow them', () => {
+test('challengeGenerationOptions keeps buildings on for any legal challenge size', () => {
     const options = challengeGenerationOptions(normalizeChallengeConfig({
         width: 24,
         height: 24,
-        letters: true,
+        buildings: true,
         colleges: true,
         pairs: false,
         roads: false,
-        difficulty: 'standard',
     }));
-
-    assert.equal(options.letterMode, 'none');
+    assert.equal(options.buildingMode, 'force');
 });
 
 test('unlocks turn on in GPA threshold order', () => {

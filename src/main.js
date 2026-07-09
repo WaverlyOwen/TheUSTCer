@@ -5,18 +5,28 @@ import './styles/tutorial.css';
 import './styles/background.css';
 import './styles/ending.css';
 
-import { placementsByLetter } from './core/letters.js';
+import { placementsByBuilding, warmComboCache } from './core/buildings.js';
 import { generatePuzzle } from './core/generator.js';
-import { MAX_GPA_TEXT, gpaTextForLevel, gpaValueForLevel, sizeForLevel } from './core/level.js';
+import { MAX_GPA_TEXT, creditsForLevel, gpaTextForLevel, gpaValueForLevel, sizeForLevel } from './core/level.js';
 import {
     CHALLENGE_DIFFICULTIES,
     MODE_CHALLENGE,
     MODE_CLASSIC,
     MODE_CUSTOM,
     MODE_TIMED,
+    MODE_ENDLESS,
     challengeGenerationOptions,
     challengeSession,
+    clearClassicPuzzleRecord,
+    endlessLevelForSize,
+    endlessSession,
+    endlessSizeForQuestion,
+    endlessTimeForQuestion,
     formatDuration,
+    loadClassicPuzzleRecord,
+    loadEndlessBest,
+    saveClassicPuzzleRecord,
+    saveEndlessBest,
     loadChallengeConfig,
     loadClassicRun,
     loadTimedDuration,
@@ -31,9 +41,9 @@ import {
     shouldBlockInteraction,
     timedSession,
     unlocksForLevel,
-    challengeLettersSupported,
+    challengeBuildingsSupported,
 } from './core/game-state.js';
-import { Path } from './core/path.js';
+import { Path, pokeDepth } from './core/path.js';
 import { checkSolution } from './core/validator.js';
 import { attachDebugGlobals, createDebugApi } from './debug/api.js';
 import { attachKeyboard } from './input/keyboard.js';
@@ -47,6 +57,7 @@ import {
     deleteSavedPuzzle,
     deserializePuzzle,
     encodeShareUrl,
+    blockedEdgeSet,
     loadSavedPuzzles,
     savePuzzleRecord,
     serializePuzzle,
@@ -79,7 +90,7 @@ function waitForPaint() {
 
 function clueSummary(config) {
     return [
-        config.letters ? '字母' : null,
+        config.buildings ? '教学楼' : null,
         config.colleges ? '书院' : null,
         config.pairs ? '组别' : null,
         config.roads ? '路名' : null,
@@ -87,15 +98,12 @@ function clueSummary(config) {
 }
 
 function challengeNote(config) {
-    const byLetter = placementsByLetter([config.width, config.height]);
-    if (config.letters && !byLetter.some((placements) => placements.length)) {
-        return '当前尺寸放不下 4×5 字母，这局会自动退回普通题。';
-    }
-    if (!challengeLettersSupported(config)) {
-        return '棋盘超过 22×22 时字母题会保持关闭；缩回 22×22 及以下就能重新打开。';
+    const byBuilding = placementsByBuilding([config.width, config.height]);
+    if (config.buildings && !byBuilding.some((placements) => placements.length)) {
+        return '当前尺寸放不下教学楼（最小 2×3），这局会自动退回普通题。';
     }
     if (config.difficulty === 'hard') {
-        return '高压会更严格压缩留白，并扩大双字母和致密路径的出现机会。';
+        return '高压会更严格压缩留白，并扩大多栋教学楼和致密路径的出现机会。';
     }
     return '难度越高，越会抬高局部覆盖和路径密度要求。';
 }
@@ -118,6 +126,7 @@ async function startGame() {
     const earnedUnlocks = unlocksForLevel(classicRun.level);
     unlocks = {
         timed: unlocks.timed || earnedUnlocks.timed,
+        endless: unlocks.endless || earnedUnlocks.endless,
         challenge: unlocks.challenge || earnedUnlocks.challenge,
         workshop: unlocks.workshop || earnedUnlocks.workshop,
     };
@@ -129,6 +138,7 @@ async function startGame() {
     let challengeConfig = loadChallengeConfig();
     let timedRun = null;
     let challengeRun = null;
+    let endlessRun = null;
 
     const hud = createHud();
     const loading = createLoadingOverlay();
@@ -225,6 +235,10 @@ async function startGame() {
                 if (currentMode === MODE_TIMED && timedRun && !timedRun.ended) {
                     timedRun.startedAt += delta;
                 }
+                if (currentMode === MODE_ENDLESS && endlessRun && !endlessRun.ended &&
+                    endlessRun.deadline !== null) {
+                    endlessRun.deadline += delta;
+                }
             }
             renderHud();
         }
@@ -264,12 +278,24 @@ async function startGame() {
         return Math.max(0, timedRun.startedAt + timedRun.durationMinutes * 60_000 - now + livePauseMs);
     }
 
+    // 无尽模式：当前题剩余毫秒（deadline 为 null = 新题尚未挂载，视为不限时）
+    function endlessRemainingMs(now = Date.now()) {
+        if (!endlessRun || endlessRun.deadline === null) {
+            return Infinity;
+        }
+        const livePauseMs = currentMode === MODE_ENDLESS ? activePauseMs(now) : 0;
+        return Math.max(0, endlessRun.deadline - now + livePauseMs);
+    }
+
     function currentLevelValue() {
         switch (currentMode) {
             case MODE_TIMED:
                 return timedRun?.level ?? 0;
             case MODE_CHALLENGE:
                 return challengeRun?.solved ?? 0;
+            case MODE_ENDLESS:
+                // 出题难度随棋盘边长走经典曲线的等效关卡
+                return endlessLevelForSize(endlessRun?.size ?? [3, 3]);
             case MODE_CLASSIC:
             default:
                 return classicRun.level;
@@ -279,6 +305,9 @@ async function startGame() {
     function currentSize() {
         if (currentMode === MODE_CUSTOM) {
             return [customRecord.w, customRecord.h];
+        }
+        if (currentMode === MODE_ENDLESS) {
+            return endlessRun?.size ?? [3, 3];
         }
         if (currentMode === MODE_CHALLENGE) {
             const config = challengeRun?.config ?? challengeConfig;
@@ -310,6 +339,8 @@ async function startGame() {
                 return '正在安排下一题...';
             case MODE_CHALLENGE:
                 return '正在定制挑战题面...';
+            case MODE_ENDLESS:
+                return '正在准备下一题...';
             case MODE_CUSTOM:
                 return '正在装载题目...';
             case MODE_CLASSIC:
@@ -322,11 +353,29 @@ async function startGame() {
         if (currentMode === MODE_CUSTOM) {
             return deserializePuzzle(customRecord);
         }
+        // 经典模式优先恢复上次未完成的题面（刷新不换题，堵住免扣分换题的口子）；
+        // 换题/过关/重置会先清掉或让记录过期，走正常生成
+        if (currentMode === MODE_CLASSIC && persistClassic) {
+            const stored = loadClassicPuzzleRecord(classicRun.level);
+            if (stored) {
+                return deserializePuzzle(stored);
+            }
+        }
         return generatePuzzle(currentSize(), currentLevelValue(), currentGenerationOptions());
     }
 
+    // 阻断通道的"驻留探入"：线头插进阻断口停在入口弧上，直到拉回/改走别处。
+    // 绑定设置时的线长，路径一有真实变化立即失效
+    let blockedStub = null;   // { dir, distance }
+
+    function stubPartial() {
+        return blockedStub && blockedStub.distance === userPath.distance
+            ? { type: 'extend', dir: blockedStub.dir, f: pokeDepth(userPath, blockedStub.dir) }
+            : null;
+    }
+
     function syncUserLine(partial = null) {
-        board?.updateUserLine(userPath.queue, partial);
+        board?.updateUserLine(userPath.queue, partial ?? stubPartial());
     }
 
     // 自动提交：路径踏入出口的瞬间判定一次（false→true 边沿触发，
@@ -348,6 +397,10 @@ async function startGame() {
             void maybeEndTimedRun();
             return true;
         }
+        if (currentMode === MODE_ENDLESS && endlessRun && !endlessRun.ended && endlessRemainingMs() <= 0) {
+            void maybeEndEndlessRun();
+            return true;
+        }
         return false;
     }
 
@@ -357,6 +410,7 @@ async function startGame() {
             generating,
             currentMode,
             timedEnded: Boolean(timedRun?.ended),
+            endlessEnded: Boolean(endlessRun?.ended),
             endingVisible,
         });
     }
@@ -369,7 +423,6 @@ async function startGame() {
     function renderHud() {
         let primary = '';
         let meta = '';
-        let status = '';
 
         // 标题下方留白有限：每个模式只用「大字 + 一行小字」两行，信息用 · 串联
         switch (currentMode) {
@@ -389,6 +442,17 @@ async function startGame() {
                 meta = `${currentDifficultyLabel()} · 已解 ${challengeRun?.solved ?? 0} 题 · ${clueSummary(config)}`;
                 break;
             }
+            case MODE_ENDLESS: {
+                const remaining = endlessRemainingMs();
+                primary = endlessRun?.ended
+                    ? `无尽结束 · ${endlessRun.cleared} 题`
+                    : `无尽 ${Number.isFinite(remaining) ? formatDuration(remaining, false) : '--:--'}`;
+                const best = loadEndlessBest();
+                meta = endlessRun?.ended
+                    ? `历史最佳 ${best} 题 · 打开 ☰ 菜单再战一轮`
+                    : `第 ${endlessRun?.question ?? 1} 题 · ${endlessRun?.size[0]}×${endlessRun?.size[1]}${best ? ` · 最佳 ${best}` : ''}`;
+                break;
+            }
             case MODE_CUSTOM: {
                 primary = customRecord?.name ?? '自定义题';
                 meta = `题目工坊 · ${customRecord?.w}×${customRecord?.h}${customRecord?.answer ? '' : ' · 无参考答案'}`;
@@ -396,13 +460,18 @@ async function startGame() {
             }
             case MODE_CLASSIC:
             default: {
-                // 经典模式界面留白：标题下只保留大号 GPA，其余信息在模式菜单里看
+                // 经典模式界面留白：标题下只保留大号 GPA；
+                // 满绩后每再通 10 关记 1 学分，小字展示
                 primary = `GPA ${gpaTextForLevel(classicRun.level)}`;
+                const credits = creditsForLevel(classicRun.level);
+                if (credits > 0) {
+                    meta = `×${credits} Credit`;
+                }
                 break;
             }
         }
 
-        hud.render({ primary, meta, status });
+        hud.render({ primary, meta });
     }
 
     function buildModeMenuState() {
@@ -433,6 +502,16 @@ async function startGame() {
                 summary: challengeSummary,
                 note: challengeNote(challengeConfig),
             },
+            endless: {
+                best: loadEndlessBest(),
+                summary: endlessRun
+                    ? endlessRun.ended
+                        ? `上轮坚持 ${endlessRun.cleared} 题 · 最佳 ${loadEndlessBest()} 题`
+                        : `进行中 · 第 ${endlessRun.question} 题`
+                    : loadEndlessBest()
+                        ? `历史最佳 ${loadEndlessBest()} 题`
+                        : '每题限时，超时即终，看你能走多远',
+            },
             workshop: {
                 puzzles: loadSavedPuzzles(),
             },
@@ -462,7 +541,7 @@ async function startGame() {
     function grantUnlocks() {
         const unlockedNow = unlocksForLevel(classicRun.level);
         const newlyUnlocked = [];
-        for (const key of ['timed', 'challenge', 'workshop']) {
+        for (const key of ['timed', 'endless', 'challenge', 'workshop']) {
             if (unlockedNow[key] && !unlocks[key]) {
                 unlocks[key] = true;
                 newlyUnlocked.push(key);
@@ -495,6 +574,13 @@ async function startGame() {
                     detail: '现在可以选 10 / 20 / 30 / 45 分钟，看看自己能刷多高。',
                     accent: 'teal',
                 });
+            } else if (key === 'endless') {
+                await playMilestoneCelebration({
+                    title: 'GPA 3.30',
+                    subtitle: '恭喜，无尽模式已解锁',
+                    detail: '每题限时、越走越紧，看看你能在无尽长廊里坚持多少题。',
+                    accent: 'violet',
+                });
             } else if (key === 'challenge') {
                 await playMilestoneCelebration({
                     title: 'GPA 3.70',
@@ -511,6 +597,32 @@ async function startGame() {
                 });
             }
         }
+    }
+
+    // 无尽模式：当前题超时 → 本轮结束，结算并记录最佳
+    async function maybeEndEndlessRun() {
+        if (currentMode !== MODE_ENDLESS || !endlessRun || endlessRun.ended ||
+            transitionBusy || generating) {
+            return;
+        }
+        if (endlessRemainingMs() > 0) {
+            return;
+        }
+        endlessRun.ended = true;
+        const newBest = saveEndlessBest(endlessRun.cleared);
+        transitionBusy = true;
+        refreshPanels();
+        await playMilestoneCelebration({
+            title: '时间到',
+            subtitle: `无尽模式坚持了 ${endlessRun.cleared} 题`,
+            detail: newBest
+                ? '新纪录！打开 ☰ 菜单可以马上再战一轮。'
+                : `历史最佳 ${loadEndlessBest()} 题，打开 ☰ 菜单再战一轮。`,
+            accent: 'violet',
+            primaryLabel: '收下成绩',
+        });
+        transitionBusy = false;
+        renderHud();
     }
 
     async function maybeEndTimedRun() {
@@ -565,14 +677,33 @@ async function startGame() {
         board?.destroy();
 
         puzzle = nextPuzzle;
-        userPath = new Path(puzzle.size);
+        userPath = new Path(puzzle.size, blockedEdgeSet(puzzle.blockedEdges, puzzle.size[1]));
+        blockedStub = null;
         wasFinished = false;
         mountBoard();
         setAnswerShown(false);
         boardViewport.reset({ animate: false });
 
+        persistClassicPuzzle();
+
+        // 无尽模式：题面就绪才开表（生成耗时不吃倒计时）；
+        // 换题惩罚通过 nextTimeMs 传入，避免重新拿满时
+        if (currentMode === MODE_ENDLESS && endlessRun && !endlessRun.ended) {
+            const timeMs = endlessRun.nextTimeMs ??
+                endlessTimeForQuestion(endlessRun.question, endlessRun.size);
+            endlessRun.nextTimeMs = null;
+            endlessRun.deadline = Date.now() + timeMs;
+        }
+
         generating = false;
         renderHud();
+    }
+
+    // 把经典模式的当前题面写进存档（与当前 level 绑定）
+    function persistClassicPuzzle() {
+        if (currentMode === MODE_CLASSIC && persistClassic && puzzle) {
+            saveClassicPuzzleRecord(classicRun.level, serializePuzzle(puzzle));
+        }
     }
 
     function setAnswerShown(shown) {
@@ -585,6 +716,11 @@ async function startGame() {
         if (!isMobileDevice()) {
             detachPointer = attachPointer(board.svg, userPath, {
                 onUpdate: (partial) => {
+                    if (partial?.type === 'extend' && userPath.pokeBlocked(partial.dir)) {
+                        blockedStub = { dir: partial.dir, distance: userPath.distance };
+                    } else if (partial) {
+                        blockedStub = null;
+                    }
                     syncUserLine(partial);
                     maybeAutoSubmit();
                 },
@@ -603,7 +739,7 @@ async function startGame() {
         detachPointer?.();
         detachPointer = null;
         board.destroy();
-        userPath = new Path(puzzle.size);
+        userPath = new Path(puzzle.size, blockedEdgeSet(puzzle.blockedEdges, puzzle.size[1]));
         for (const move of queue) {
             userPath.step(move);
         }
@@ -649,18 +785,30 @@ async function startGame() {
         refreshPanels();
     }
 
+    async function startEndlessMode() {
+        if (currentMode === MODE_CLASSIC) {
+            suspendClassicRun();
+        }
+        currentMode = MODE_ENDLESS;
+        endlessRun = endlessSession();
+        await newBoard();
+        refreshPanels();
+    }
+
     async function resetClassicProgress() {
         classicRun = persistClassic
             ? resetClassicRun()
             : { level: 0, startedAt: Date.now(), finishedAt: null, pausedMs: 0 };
         classicSuspendedAt = null;
-        unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false, workshop: false };
+        unlocks = persistClassic ? resetUnlocks() : { timed: false, endless: false, challenge: false, workshop: false };
         timedRun = null;
+        endlessRun = null;
         challengeRun = null;
         currentMode = MODE_CLASSIC;
 
         remove(ENDING_SEEN_KEY);
         remove(LEGACY_LEVEL_KEY);
+        clearClassicPuzzleRecord();
         document.getElementById('ending-replay-button')?.remove();
 
         await newBoard();
@@ -711,6 +859,21 @@ async function startGame() {
             return;
         }
 
+        if (currentMode === MODE_ENDLESS) {
+            endlessRun.cleared++;
+            endlessRun.question++;
+            endlessRun.size = endlessSizeForQuestion(endlessRun.question);
+            endlessRun.deadline = null;   // 新题挂载后再开表
+            hud.bumpPrimary();
+            refreshPanels();
+            setTimeout(async () => {
+                await newBoard({ forceLoading: endlessRun.size[0] * endlessRun.size[1] >= 100 });
+                transitionBusy = false;
+                refreshPanels();
+            }, WIN_TRANSITION_MS);
+            return;
+        }
+
         if (currentMode === MODE_TIMED) {
             timedRun.level++;
             timedRun.cleared++;
@@ -744,18 +907,36 @@ async function startGame() {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
                 return;
             }
+            // 已探入阻断口时，按反方向 = 把线头拉出来
+            if (blockedStub && blockedStub.distance === userPath.distance &&
+                (direction + 2) % 4 === blockedStub.dir) {
+                blockedStub = null;
+                syncUserLine();
+                return;
+            }
             if (userPath.step(direction)) {
+                blockedStub = null;
                 syncUserLine();
                 maybeAutoSubmit();
             } else if (userPath.distance &&
                 (direction + 2) % 4 === userPath.queue[userPath.distance - 1]) {
+                blockedStub = null;
                 userPath.back();
                 syncUserLine();
                 wasFinished = userPath.finished;
+            } else if (userPath.pokeBlocked(direction)) {
+                // 撞上阻断通道：线头探入并驻留在入口弧上
+                blockedStub = { dir: direction, distance: userPath.distance };
+                syncUserLine();
             }
         },
         undo() {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
+                return;
+            }
+            if (blockedStub) {
+                blockedStub = null;
+                syncUserLine();
                 return;
             }
             userPath.back();
@@ -766,6 +947,7 @@ async function startGame() {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
                 return;
             }
+            blockedStub = null;
             userPath.clear();
             syncUserLine();
             wasFinished = false;
@@ -787,6 +969,18 @@ async function startGame() {
                 return;
             }
             lowerDifficultyForHint();
+            // 显式换题要拿新题：清掉持久化题面（level 0 降无可降时记录不会自然过期）
+            if (currentMode === MODE_CLASSIC) {
+                clearClassicPuzzleRecord();
+            }
+            // 无尽模式换题的代价：只带走剩余时间的一半
+            // （deadline 为 null = 新题还没开表，此时不该产生 Infinity 惩罚）
+            if (currentMode === MODE_ENDLESS && endlessRun && !endlessRun.ended &&
+                endlessRun.deadline !== null) {
+                endlessRun.nextTimeMs = Math.max(1000, Math.floor(endlessRemainingMs() / 2));
+                endlessRun.deadline = null;
+                endlessRun.size = endlessSizeForQuestion(endlessRun.question);
+            }
             refreshPanels();
             void newBoard({ forceLoading: currentMode === MODE_CHALLENGE });
         },
@@ -802,9 +996,21 @@ async function startGame() {
             board.showAnswer();
             setAnswerShown(true);
             lowerDifficultyForHint();
+            // 无尽模式看答案的代价：剩余时间立刻压到 10 秒
+            if (currentMode === MODE_ENDLESS && endlessRun && !endlessRun.ended &&
+                endlessRun.deadline !== null) {
+                endlessRun.deadline = Math.min(endlessRun.deadline, Date.now() + 10_000);
+            }
+            // 看答案降了级但仍是同一题：把持久化题面重绑到新 level，
+            // 刷新后不会再白拿一张新题
+            persistClassicPuzzle();
             refreshPanels();
         },
         hideAnswer() {
+            // 与其余动作一致：覆盖层（教程/编辑器）打开或过渡期间不改棋盘状态
+            if (isInteractionBlocked()) {
+                return;
+            }
             board?.hideAnswer();
             setAnswerShown(false);
         },
@@ -945,11 +1151,16 @@ async function startGame() {
                     challengeRun = challengeSession(challengeConfig);
                     challengeRun.solved = nextLevel;
                     break;
+                case MODE_ENDLESS:
+                    // 无尽模式没有可设的关卡概念
+                    break;
                 case MODE_CLASSIC:
                 default:
                     classicRun.level = nextLevel;
                     classicRun.finishedAt = null;
                     saveClassic();
+                    // 改关卡后旧题面记录已无意义，清掉防止刷新时错位恢复
+                    clearClassicPuzzleRecord();
                     break;
             }
             refreshPanels();
@@ -1012,6 +1223,7 @@ async function startGame() {
             renderHud();
         },
         startChallenge: startChallengeMode,
+        startEndless: startEndlessMode,
         workshop: {
             create: () => openPuzzleEditor(),
             play: async (id) => {
@@ -1069,6 +1281,10 @@ async function startGame() {
             getUserPath: () => userPath,
             getBusy: () => transitionBusy || generating,
             reloadBoard: () => {
+                // 调试重抽必须真的换题：先清持久化题面
+                if (currentMode === MODE_CLASSIC) {
+                    clearClassicPuzzleRecord();
+                }
                 return newBoard();
             },
             syncUserLine,
@@ -1080,12 +1296,14 @@ async function startGame() {
                     ? resetClassicRun()
                     : { level: 0, startedAt: Date.now(), finishedAt: null, pausedMs: 0 };
                 classicSuspendedAt = null;
-                unlocks = persistClassic ? resetUnlocks() : { timed: false, challenge: false, workshop: false };
+                unlocks = persistClassic ? resetUnlocks() : { timed: false, endless: false, challenge: false, workshop: false };
                 timedRun = null;
+                endlessRun = null;
                 challengeRun = null;
                 currentMode = MODE_CLASSIC;
                 remove(ENDING_SEEN_KEY);
                 remove(LEGACY_LEVEL_KEY);
+                clearClassicPuzzleRecord();
                 document.getElementById('ending-replay-button')?.remove();
             },
         }), import.meta.env.DEV);
@@ -1099,6 +1317,8 @@ async function startGame() {
 
     await newBoard();
     renderHud();
+    // 组合楼拼形枚举放到空闲期预热，玩家撞上组合题时零等待
+    warmComboCache();
 
     if (sharedRecord) {
         showImportConfirm(sharedRecord);
@@ -1107,6 +1327,7 @@ async function startGame() {
     setInterval(() => {
         renderHud();
         void maybeEndTimedRun();
+        void maybeEndEndlessRun();
     }, HUD_TICK_MS);
 }
 

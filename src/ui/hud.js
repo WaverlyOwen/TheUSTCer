@@ -3,14 +3,17 @@
 export function createHud() {
     const primaryElement = document.getElementById('GPA');
     const metaElement = document.getElementById('hud-meta');
-    const statusElement = document.getElementById('hud-status');
     const waElement = document.getElementById('WA');
     let waTimer = null;
+    let waVisible = false;
 
+    // WA 与 meta 同区：WA 显示期间暂隐 meta，避免文字叠在一起。
+    // 可见性由 render 统一落实（HUD 定时刷新会走这里），
+    // 防止 WA 窗口期内换板/换模式后 meta 卡在隐藏态
     function render(snapshot) {
         primaryElement.textContent = snapshot.primary ?? '';
         metaElement.textContent = snapshot.meta ?? '';
-        statusElement.textContent = snapshot.status ?? '';
+        metaElement.style.opacity = waVisible ? 0 : 1;
     }
 
     return {
@@ -21,15 +24,14 @@ export function createHud() {
             primaryElement.classList.add('bump');
         },
         showWrongAnswer() {
-            // WA 与 meta/status 同区：显示期间暂隐后两者，避免文字叠在一起
+            waVisible = true;
             waElement.style.opacity = 1;
             metaElement.style.opacity = 0;
-            statusElement.style.opacity = 0;
             clearTimeout(waTimer);
             waTimer = setTimeout(() => {
+                waVisible = false;
                 waElement.style.opacity = 0;
                 metaElement.style.opacity = 1;
-                statusElement.style.opacity = 1;
             }, 2000);
         },
     };

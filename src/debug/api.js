@@ -1,23 +1,23 @@
 "use strict";
 
-import { LETTER_NAMES, compatiblePlacements, placementsByLetter } from '../core/letters.js';
+import { BUILDING_NAMES, compatiblePlacements, placementsByBuilding } from '../core/buildings.js';
 
-const LETTER_SET = new Set(LETTER_NAMES);
+const BUILDING_SET = new Set(BUILDING_NAMES);
 const MAX_SEEK_ATTEMPTS = 400;
 
-function availableLettersForSize(size) {
-    return placementsByLetter(size)
-        .flatMap((placements, index) => placements.length ? LETTER_NAMES[index] : []);
+function availableBuildingsForSize(size) {
+    return placementsByBuilding(size)
+        .flatMap((placements, index) => placements.length ? BUILDING_NAMES[index] : []);
 }
 
-function compatibleLetterRequest(size, wanted) {
-    const byLetter = placementsByLetter(size);
-    const indexes = wanted.map(letter => LETTER_NAMES.indexOf(letter));
+function compatibleBuildingRequest(size, wanted) {
+    const byBuilding = placementsByBuilding(size);
+    const indexes = wanted.map(building => BUILDING_NAMES.indexOf(building));
     if (indexes.length === 1) {
-        return byLetter[indexes[0]].length > 0;
+        return byBuilding[indexes[0]].length > 0;
     }
-    for (const first of byLetter[indexes[0]]) {
-        for (const second of byLetter[indexes[1]]) {
+    for (const first of byBuilding[indexes[0]]) {
+        for (const second of byBuilding[indexes[1]]) {
             if (compatiblePlacements(first, second)) {
                 return true;
             }
@@ -26,26 +26,26 @@ function compatibleLetterRequest(size, wanted) {
     return false;
 }
 
-function normalizeLetters(input) {
+function normalizeBuildings(input) {
     const raw = Array.isArray(input) ? input : [input];
     if (!raw.length || raw.length > 2) {
-        throw new Error('Pass one letter or two different letters.');
+        throw new Error('Pass one building or two different buildings.');
     }
-    const normalized = raw.map(letter => String(letter).trim().toUpperCase());
+    const normalized = raw.map(building => String(building).trim().toUpperCase());
     if (new Set(normalized).size !== normalized.length) {
-        throw new Error('Letters must be unique.');
+        throw new Error('Buildings must be unique.');
     }
-    for (const letter of normalized) {
-        if (!LETTER_SET.has(letter)) {
-            throw new Error(`Unknown letter: ${letter}`);
+    for (const building of normalized) {
+        if (!BUILDING_SET.has(building)) {
+            throw new Error(`Unknown building: ${building}`);
         }
     }
     return normalized;
 }
 
-function summarizeLetters(puzzle) {
-    return puzzle.letters.map(({ letterIndex, markerCell }) => ({
-        letter: LETTER_NAMES[letterIndex],
+function summarizeBuildings(puzzle) {
+    return puzzle.buildings.map(({ buildingIndex, markerCell }) => ({
+        building: BUILDING_NAMES[buildingIndex],
         markerCell: [...markerCell],
     }));
 }
@@ -88,8 +88,8 @@ export function createDebugApi({
         return {
             level: level.value,
             size: [...size],
-            availableLetters: availableLettersForSize(size),
-            letters: puzzle ? summarizeLetters(puzzle) : [],
+            availableBuildings: availableBuildingsForSize(size),
+            buildings: puzzle ? summarizeBuildings(puzzle) : [],
             pathLength: userPath?.distance ?? 0,
             finished: userPath?.finished ?? false,
         };
@@ -132,18 +132,18 @@ export function createDebugApi({
         };
     }
 
-    async function seekLetters(input) {
+    async function seekBuildings(input) {
         assertIdle();
         hideAnswer();
-        const wanted = normalizeLetters(input);
-        const available = new Set(availableLettersForSize(level.size()));
-        for (const letter of wanted) {
-            if (!available.has(letter)) {
-                throw new Error(`Letter ${letter} is not available at level ${level.value}.`);
+        const wanted = normalizeBuildings(input);
+        const available = new Set(availableBuildingsForSize(level.size()));
+        for (const building of wanted) {
+            if (!available.has(building)) {
+                throw new Error(`Building ${building} is not available at level ${level.value}.`);
             }
         }
-        if (!compatibleLetterRequest(level.size(), wanted)) {
-            throw new Error(`Letters ${wanted.join(', ')} do not share a valid layout at level ${level.value}. Try a larger board.`);
+        if (!compatibleBuildingRequest(level.size(), wanted)) {
+            throw new Error(`Buildings ${wanted.join(', ')} do not share a valid layout at level ${level.value}. Try a larger board.`);
         }
 
         const matches = () => {
@@ -151,8 +151,8 @@ export function createDebugApi({
             if (!nextPuzzle) {
                 return false;
             }
-            const present = new Set(summarizeLetters(nextPuzzle).map(entry => entry.letter));
-            return wanted.every(letter => present.has(letter));
+            const present = new Set(summarizeBuildings(nextPuzzle).map(entry => entry.building));
+            return wanted.every(building => present.has(building));
         };
 
         let attempts = 0;
@@ -161,7 +161,7 @@ export function createDebugApi({
             attempts++;
         }
         if (!matches()) {
-            throw new Error(`Could not find letters ${wanted.join(', ')} after ${MAX_SEEK_ATTEMPTS} rerolls.`);
+            throw new Error(`Could not find buildings ${wanted.join(', ')} after ${MAX_SEEK_ATTEMPTS} rerolls.`);
         }
 
         return {
@@ -178,8 +178,8 @@ export function createDebugApi({
             'await window.__ustcerDebug.reload()',
             'window.__ustcerDebug.solve()',
             'window.__ustcerDebug.showAnswer() / hideAnswer()',
-            "await window.__ustcerDebug.seekLetter('S')",
-            "await window.__ustcerDebug.seekLetters(['U', 'C'])",
+            "await window.__ustcerDebug.seekBuilding('三')",
+            "await window.__ustcerDebug.seekBuildings(['一', '五'])",
             'window.__ustcerDebug.playEnding()',
             'await window.__ustcerDebug.resetProgress()',
         ];
@@ -202,10 +202,10 @@ export function createDebugApi({
             hideAnswer();
             return state();
         },
-        seekLetter(letter) {
-            return seekLetters([letter]);
+        seekBuilding(building) {
+            return seekBuildings([building]);
         },
-        seekLetters,
+        seekBuildings,
         playEnding() {
             playEnding();
             return { playing: true };

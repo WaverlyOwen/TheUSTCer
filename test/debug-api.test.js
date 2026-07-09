@@ -22,12 +22,12 @@ test('createDebugApi exposes stable helper methods and awaits async rerolls', as
     const puzzleQueue = [
         {
             size: [7, 7],
-            letters: [{ letterIndex: 0, markerCell: [0, 4] }],
+            buildings: [{ buildingIndex: 0, markerCell: [0, 4] }],
             answer: { queue: [0, 1, 0] },
         },
         {
             size: [7, 7],
-            letters: [{ letterIndex: 1, markerCell: [1, 1] }],
+            buildings: [{ buildingIndex: 1, markerCell: [1, 1] }],
             answer: { queue: [2, 3] },
         },
     ];
@@ -84,9 +84,9 @@ test('createDebugApi exposes stable helper methods and awaits async rerolls', as
 
     assert.equal(typeof api.help, 'function');
     assert.equal(typeof api.state, 'function');
-    assert.equal(typeof api.seekLetter, 'function');
+    assert.equal(typeof api.seekBuilding, 'function');
 
-    assert.deepEqual(api.state().letters, [{ letter: 'U', markerCell: [0, 4] }]);
+    assert.deepEqual(api.state().buildings, [{ building: '一', markerCell: [0, 4] }]);
 
     await api.setLevel(60);
     assert.deepEqual(calls.slice(0, 3), [
@@ -94,7 +94,7 @@ test('createDebugApi exposes stable helper methods and awaits async rerolls', as
         ['setLevel', 60],
         ['reload', { fresh: true, prefetch: false }],
     ]);
-    assert.deepEqual(api.state().letters, [{ letter: 'S', markerCell: [1, 1] }]);
+    assert.deepEqual(api.state().buildings, [{ building: '二', markerCell: [1, 1] }]);
 
     calls.length = 0;
     api.solve();
@@ -115,17 +115,17 @@ test('createDebugApi exposes stable helper methods and awaits async rerolls', as
     ]);
 });
 
-test('seekLetters waits for each async reroll before checking puzzle letters again', async () => {
+test('seekBuildings waits for each async reroll before checking puzzle buildings again', async () => {
     const events = [];
     const puzzles = [
         {
             size: [7, 7],
-            letters: [{ letterIndex: 0, markerCell: [0, 4] }],
+            buildings: [{ buildingIndex: 0, markerCell: [0, 4] }],
             answer: { queue: [] },
         },
         {
             size: [7, 7],
-            letters: [{ letterIndex: 2, markerCell: [3, 0] }],
+            buildings: [{ buildingIndex: 2, markerCell: [3, 0] }],
             answer: { queue: [] },
         },
     ];
@@ -163,10 +163,10 @@ test('seekLetters waits for each async reroll before checking puzzle letters aga
         resetProgress() {},
     });
 
-    const result = await api.seekLetter('T');
+    const result = await api.seekBuilding('三');
 
     assert.equal(result.attempts, 1);
-    assert.deepEqual(result.letters, [{ letter: 'T', markerCell: [3, 0] }]);
+    assert.deepEqual(result.buildings, [{ building: '三', markerCell: [3, 0] }]);
     assert.deepEqual(events.slice(0, 4), [
         'check:0',
         'reload:start',

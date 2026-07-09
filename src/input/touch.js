@@ -21,6 +21,13 @@ export function createSwipeDetector(actions, getSensitivity = () => 1) {
             y = 0;
             return;
         }
+        // 从按钮/表单控件上起手的触摸不算画线起点：
+        // 否则按住顶栏图标一拖就会往棋盘上灌移动指令
+        if (event.target.closest?.('button, input, select, textarea, a')) {
+            x = 0;
+            y = 0;
+            return;
+        }
         const touch = event.touches[0];
         x = touch.clientX;
         y = touch.clientY;

@@ -6,35 +6,37 @@ import test from 'node:test';
 import { generatePuzzle, hasLocalLineCoverage } from '../src/core/generator.js';
 import { checkSolution } from '../src/core/validator.js';
 
-test('generator keeps letters disabled before all four families fit', () => {
-    // 5×5 放不下 S/T/C（默认要求四种字母齐全），不应出字母
-    for (let i = 0; i < 50; i++) {
-        const puzzle = generatePuzzle([5, 5], 55);
-        assert.equal(puzzle.letters.length, 0);
-    }
-});
-
-test('generator eventually produces all four letters on a modest board', () => {
+test('generator eventually produces all five buildings on a modest board', () => {
     const seen = new Set();
-    for (let i = 0; i < 1200 && seen.size < 4; i++) {
+    for (let i = 0; i < 1200 && seen.size < 5; i++) {
         const puzzle = generatePuzzle([9, 9], 80);
-        for (const { letterIndex } of puzzle.letters) {
-            seen.add(letterIndex);
+        for (const { buildingIndex } of puzzle.buildings) {
+            seen.add(buildingIndex);
         }
     }
-    assert.deepEqual([...seen].sort((a, b) => a - b), [0, 1, 2, 3]);
+    assert.deepEqual([...seen].sort((a, b) => a - b), [0, 1, 2, 3, 4]);
 });
 
-test('double-letter puzzles never repeat the same letter', () => {
-    let sawDoubleLetterPuzzle = false;
+test('multi-building puzzles never repeat the same building', () => {
+    let sawMultiBuildingPuzzle = false;
     for (let i = 0; i < 400; i++) {
         const puzzle = generatePuzzle([10, 9], 85);
-        if (puzzle.letters.length === 2) {
-            sawDoubleLetterPuzzle = true;
-            assert.notEqual(puzzle.letters[0].letterIndex, puzzle.letters[1].letterIndex);
+        if (puzzle.buildings.length >= 2) {
+            sawMultiBuildingPuzzle = true;
+            const indices = puzzle.buildings.map(({ buildingIndex }) => buildingIndex);
+            assert.equal(new Set(indices).size, indices.length);
         }
     }
-    assert.equal(sawDoubleLetterPuzzle, true);
+    assert.equal(sawMultiBuildingPuzzle, true);
+});
+
+test('buildings can appear on small boards at low levels', () => {
+    let sawBuilding = false;
+    for (let i = 0; i < 300 && !sawBuilding; i++) {
+        const puzzle = generatePuzzle([3, 2], 15);
+        sawBuilding = puzzle.buildings.length > 0;
+    }
+    assert.equal(sawBuilding, true);
 });
 
 test('generated answers satisfy the 4x4 local line coverage gate', () => {
@@ -67,7 +69,7 @@ test('generated puzzles stay self-consistent and validate with their own answers
 test('hard challenge generation keeps dense local coverage on medium boards', () => {
     for (let i = 0; i < 20; i++) {
         const puzzle = generatePuzzle([12, 10], 100, {
-            letterMode: 'balanced',
+            buildingMode: 'balanced',
             localCoverageWindow: 3,
             mutationWindow: 2,
             mutationPasses: 3,

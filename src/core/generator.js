@@ -2,27 +2,26 @@
 
 import { Path, movePoint } from './path.js';
 import { shuffleArray, randomSet, random } from '../lib/random.js';
-import { placementsByLetter, compatiblePlacements } from './letters.js';
+import { analyzePlacement, comboShapes, placementsByBuilding, compatiblePlacements, touchedSides } from './buildings.js';
 
 // sign[i][j] = [[横路名开关, 路名编号], [竖路名开关, 路名编号], [格子类型, 类型编号]]
-// 类型编码见 docs/reference.txt：7~10 书院，11 红专，12 理实，14 USTC 字母区块
+// 类型编码见 docs/reference.txt：7~10 书院，11 红专，12 理实，13 教学楼区块
 const TYPE_SCALE = [2, 2, 2, 4, 4, 11, 11, 1, 3, 5, 5, 2, 2, 5, 4];
 const SIGN_RATE = 0.7;
-const LETTER_ATTEMPTS = 48;
-const LETTER_CANDIDATE_LIMIT = 8;
+const BUILDING_ATTEMPTS = 48;
+const BUILDING_CANDIDATE_LIMIT = 8;
 // 每个字母组合最多收集这么多合格候选就换下一个组合；组合间均匀抽签保证字母均衡
-const LETTER_CANDIDATES_PER_PLAN = 2;
+const BUILDING_CANDIDATES_PER_PLAN = 2;
 const LOCAL_COVERAGE_WINDOW = 3;
 const MOVE_DX = [1, 0, -1, 0];
 const MOVE_DY = [0, 1, 0, -1];
 
 const DEFAULT_GENERATION_OPTIONS = {
-    letterMode: 'balanced', // balanced | force | none
-    requireAllLetterFamilies: true,
-    preferredLetterCount: null,
-    maxLetterCount: 2,
-    forceLetterCount: 1,
-    allowDoubleLetters: true,
+    buildingMode: 'balanced', // balanced | force | none
+    requireAllBuildingFamilies: false,
+    preferredBuildingCount: null,
+    maxBuildingCount: 5,
+    forceBuildingCount: 1,
     collegesEnabled: true,
     pairsMode: 'normal', // off | normal | dense
     roadsMode: 'normal', // off | normal | dense
@@ -71,8 +70,8 @@ function createGenerationSettings(level, options = {}) {
     settings.mutationMinTouches = Math.max(1, settings.mutationMinTouches | 0);
     settings.minimumPrefixSteps = Math.max(2, settings.minimumPrefixSteps | 0);
     settings.minimumTailSteps = Math.max(4, settings.minimumTailSteps | 0);
-    settings.forceLetterCount = Math.max(1, settings.forceLetterCount | 0);
-    settings.maxLetterCount = Math.max(1, settings.maxLetterCount | 0);
+    settings.forceBuildingCount = Math.max(1, settings.forceBuildingCount | 0);
+    settings.maxBuildingCount = Math.max(1, settings.maxBuildingCount | 0);
     settings.normalCandidateAttempts = Math.max(6, settings.normalCandidateAttempts | 0);
     settings.normalCandidateLimit = Math.max(1, settings.normalCandidateLimit | 0);
     settings.generationBudgetMs = Math.max(500, settings.generationBudgetMs | 0);
@@ -247,7 +246,7 @@ function wander(path, state, alsoKeep = null) {
 
 // 字母题三段式生成：游走到链端 → 强制沿字母轮廓链走完 → 下一条链/终点。
 // 字母内部边全程禁止穿越，保证字母区域不被再切分。
-function generateAnswerWithLetters(size, placements) {
+function generateAnswerWithBuildings(size, placements) {
     const blocked = new Set();
     for (const placement of placements) {
         for (const key of placement.interiorEdgeKeys) {
@@ -505,14 +504,15 @@ function scoreAnswer(answer, size, t, settings, profile = coverageProfile(answer
         Math.abs(turnRatio(answer) - turnTarget) * 1.4;
 }
 
-// 字母题的放宽过滤：强制链走向让区域分布天然不如自由游走均匀，
+// 教学楼题的放宽过滤：强制链走向让区域分布天然不如自由游走均匀，
 // 只挡明显劣质盘（巨型空区/区域过少），孤格转为打分惩罚
-function validLetterAnswer(answer, size, settings, profile = coverageProfile(answer, size, settings)) {
+function validBuildingAnswer(answer, size, settings, profile = coverageProfile(answer, size, settings)) {
     const cells = size[0] * size[1];
     if (profile.coarse.blankWindows > 0) {
         return false;
     }
-    if (answer.group.length < 3) {
+    // 小盘（≤12 格）楼 + 余下就是 2 个区域，属正常形态
+    if (answer.group.length < (cells <= 12 ? 2 : 3)) {
         return false;
     }
     for (const member of answer.group) {
@@ -523,7 +523,7 @@ function validLetterAnswer(answer, size, settings, profile = coverageProfile(ans
     return true;
 }
 
-function scoreLetterAnswer(answer, size, t, settings, profile = coverageProfile(answer, size, settings)) {
+function scoreBuildingAnswer(answer, size, t, settings, profile = coverageProfile(answer, size, settings)) {
     const singletons = answer.group.filter(member => member === 1).length;
     return scoreAnswer(answer, size, t, settings, profile) - singletons * 0.15;
 }
@@ -687,59 +687,82 @@ function refineCandidate(answer, size, t, settings) {
     return current;
 }
 
-function buildLetterPlans(byLetter, count, requireAllFamilies = true) {
-    const available = byLetter
+function buildBuildingPlans(byBuilding, count, requireAllFamilies = true) {
+    const available = byBuilding
         .map((placements, index) => placements.length ? index : null)
         .filter(index => index !== null);
     if (!available.length) {
         return [];
     }
-    if (requireAllFamilies && available.length !== byLetter.length) {
+    if (requireAllFamilies && available.length !== byBuilding.length) {
         return [];
     }
     if (count > available.length) {
         return [];
     }
-    if (count === 1) {
-        return shuffleArray(available.map(letterIndex => [letterIndex]));
-    }
+    // 挑 count 栋互不相同的楼的全部组合；<= C(5,k) = 10 个
     const plans = [];
-    for (let i = 0; i < available.length; i++) {
-        for (let j = i + 1; j < available.length; j++) {
-            plans.push([available[i], available[j]]);
+    const pick = (start, chosen) => {
+        if (chosen.length === count) {
+            plans.push([...chosen]);
+            return;
         }
-    }
+        for (let i = start; i < available.length; i++) {
+            chosen.push(available[i]);
+            pick(i + 1, chosen);
+            chosen.pop();
+        }
+    };
+    pick(0, []);
     return shuffleArray(plans);
 }
 
-function compatiblePlacementPairs(firstPlacements, secondPlacements) {
-    const pairs = [];
-    for (const first of firstPlacements) {
-        for (const second of secondPlacements) {
-            if (compatiblePlacements(first, second)) {
-                pairs.push([first, second]);
+// 随机采样 k 栋楼的两两相容放置元组（全笛卡尔积在大盘上会爆，采样即可）
+function compatiblePlacementTuples(byBuilding, plan, limit = 24, tries = 160) {
+    const tuples = [];
+    for (let attempt = 0; attempt < tries && tuples.length < limit; attempt++) {
+        const chosen = [];
+        let failed = false;
+        for (const buildingIndex of plan) {
+            const options = byBuilding[buildingIndex];
+            let placed = null;
+            for (let pickTry = 0; pickTry < 8; pickTry++) {
+                const candidate = options[random(options.length)];
+                if (chosen.every(existing => compatiblePlacements(existing, candidate))) {
+                    placed = candidate;
+                    break;
+                }
             }
+            if (!placed) {
+                failed = true;
+                break;
+            }
+            chosen.push(placed);
+        }
+        if (!failed) {
+            tuples.push(chosen);
         }
     }
-    return pairs;
+    return tuples;
 }
 
-function collectLetterCandidates(size, plans, byLetter, settings, deadline) {
+function collectBuildingCandidates(size, plans, byBuilding, settings, deadline) {
     const candidates = [];
-    const planBudget = Math.max(1, Math.ceil(LETTER_ATTEMPTS / Math.max(plans.length, 1)));
-    let attemptsRemaining = LETTER_ATTEMPTS;
+    // 大盘单次尝试贵得多，按面积收紧总配额（失败重试是烧预算的主力）
+    const totalAttempts = settings.boardCells > 350 ? 12
+        : settings.boardCells > 200 ? 20
+        : BUILDING_ATTEMPTS;
+    const planBudget = Math.max(1, Math.ceil(totalAttempts / Math.max(plans.length, 1)));
+    let attemptsRemaining = totalAttempts;
 
     for (const plan of plans) {
         if (!attemptsRemaining || Date.now() > deadline) {
             break;
         }
 
-        let placementOptions;
-        if (plan.length === 1) {
-            placementOptions = byLetter[plan[0]].map(placement => [placement]);
-        } else {
-            placementOptions = compatiblePlacementPairs(byLetter[plan[0]], byLetter[plan[1]]);
-        }
+        const placementOptions = plan.length === 1
+            ? byBuilding[plan[0]].map(placement => [placement])
+            : compatiblePlacementTuples(byBuilding, plan);
         if (!placementOptions.length) {
             continue;
         }
@@ -748,24 +771,29 @@ function collectLetterCandidates(size, plans, byLetter, settings, deadline) {
         let collectedForPlan = 0;
         for (let attempt = 0; attempt < budget; attempt++) {
             // 单组合攒够就换下一个组合：既省预算，又保证多个字母组合都有候选可供均匀抽签
-            if (collectedForPlan >= LETTER_CANDIDATES_PER_PLAN || Date.now() > deadline) {
+            if (collectedForPlan >= BUILDING_CANDIDATES_PER_PLAN || Date.now() > deadline) {
                 break;
             }
             attemptsRemaining--;
             const chosen = randomItem(placementOptions);
-            const candidate = generateAnswerWithLetters(size, chosen);
+            const candidate = generateAnswerWithBuildings(size, chosen);
             if (!candidate) {
+                continue;
+            }
+            // 大盘先做廉价结构校验：注定不合格的候选不进昂贵的 refine
+            if (size[0] * size[1] > 200 &&
+                !validBuildingAnswer(candidate, size, settings)) {
                 continue;
             }
             const refined = refineCandidate(candidate, size, settings.difficultyValue, settings);
             const profile = coverageProfile(refined, size, settings);
-            if (validLetterAnswer(refined, size, settings, profile)) {
+            if (validBuildingAnswer(refined, size, settings, profile)) {
                 collectedForPlan++;
                 pushTopEntries(candidates, {
                     candidate: refined,
                     chosen,
-                    score: scoreLetterAnswer(refined, size, settings.difficultyValue, settings, profile),
-                }, LETTER_CANDIDATE_LIMIT);
+                    score: scoreBuildingAnswer(refined, size, settings.difficultyValue, settings, profile),
+                }, BUILDING_CANDIDATE_LIMIT);
             }
         }
     }
@@ -773,7 +801,7 @@ function collectLetterCandidates(size, plans, byLetter, settings, deadline) {
     return candidates;
 }
 
-function ensurePairPresence(groupType, answer, letterGroups) {
+function ensurePairPresence(groupType, answer, buildingGroups) {
     for (const [, queue] of groupType) {
         if (queue.length) {
             return;
@@ -781,7 +809,7 @@ function ensurePairPresence(groupType, answer, letterGroups) {
     }
     for (let i = 0; i < answer.group.length; i++) {
         const member = answer.group[i];
-        if (member >= 4 && !letterGroups.has(i)) {
+        if (member >= 4 && !buildingGroups.has(i)) {
             const set = randomSet(2, member);
             groupType[i][1] = [...set].map((element, index) => [element, 11, index]);
             return;
@@ -789,7 +817,7 @@ function ensurePairPresence(groupType, answer, letterGroups) {
     }
 }
 
-function fillSigns(answer, size, t, letters, settings) {
+function fillSigns(answer, size, t, buildings, settings) {
     const groupType = [];
     const types = shuffleArray([7, 8, 9, 10]);
     const roadRate = settings.roadsMode === 'off'
@@ -804,8 +832,8 @@ function fillSigns(answer, size, t, letters, settings) {
         : pairMode === 'dense'
             ? 0.08
             : 0.5 - 0.25 * t;
-    const letterGroups = new Set(
-        letters.map(letter => answer.groupMap[letter.markerCell[0]][letter.markerCell[1]]));
+    const buildingGroups = new Set(
+        buildings.map(building => answer.groupMap[building.markerCell[0]][building.markerCell[1]]));
 
     const sign = Array.from({ length: size[0] + 1 }, () =>
         Array.from({ length: size[1] + 1 }, () => [[0, 0], [0, 0], [0, 0]]));
@@ -813,7 +841,7 @@ function fillSigns(answer, size, t, letters, settings) {
     for (let i = 0; i < answer.group.length; i++) {
         const member = answer.group[i];
         let queue = [];
-        if (pairMode !== 'off' && member >= 4 && !letterGroups.has(i) && Math.random() >= noPairRate) {
+        if (pairMode !== 'off' && member >= 4 && !buildingGroups.has(i) && Math.random() >= noPairRate) {
             let set;
             switch (1 + random(3)) {
                 case 1:
@@ -835,7 +863,7 @@ function fillSigns(answer, size, t, letters, settings) {
     }
 
     if (pairMode !== 'off') {
-        ensurePairPresence(groupType, answer, letterGroups);
+        ensurePairPresence(groupType, answer, buildingGroups);
     }
 
     // remaining 作为组内格子的倒计数，标记红专/理实落在组内第几个格子上
@@ -867,7 +895,7 @@ function fillSigns(answer, size, t, letters, settings) {
     // 给这类区域（≥2 格、非字母区域）补一枚该组书院签
     if (settings.collegesEnabled) {
         for (let group = 0; group < answer.group.length; group++) {
-            if (groupClueCount[group] > 0 || letterGroups.has(group) || groupCells[group].length < 2) {
+            if (groupClueCount[group] > 0 || buildingGroups.has(group) || groupCells[group].length < 2) {
                 continue;
             }
             const [x, y] = randomItem(groupCells[group]);
@@ -905,37 +933,50 @@ function fillSigns(answer, size, t, letters, settings) {
         }
     }
 
-    // 字母标记格（覆盖该格原有签；所在组已强制无配对约束，覆盖安全）
-    for (const letter of letters) {
-        const [x, y] = letter.markerCell;
-        sign[x][y][2] = [14, letter.letterIndex];
+    // 教学楼标记格（覆盖该格原有签；所在组已强制无配对约束，覆盖安全）
+    for (const building of buildings) {
+        const [x, y] = building.markerCell;
+        sign[x][y][2] = [13, building.buildingIndex];
     }
 
     return sign;
 }
 
-function pickDesiredLetterCount(byLetter, settings) {
-    if (settings.letterMode === 'none') {
+function pickDesiredBuildingCount(byBuilding, settings) {
+    if (settings.buildingMode === 'none') {
         return 0;
     }
-    if (settings.letterMode === 'force') {
-        return Math.min(settings.forceLetterCount, settings.maxLetterCount);
+    if (settings.buildingMode === 'force') {
+        return Math.min(settings.forceBuildingCount, settings.maxBuildingCount);
     }
-    const roll = Math.random();
-    if (settings.difficultyValue >= 0.9 && settings.allowDoubleLetters && roll < 0.3) {
-        return 2;
+    // balanced：出现概率随难度爬升（小板低概率见楼，后期常驻）；
+    // 出现后栋数也随难度上探，最多 5 栋且互不相同
+    const available = byBuilding.filter(placements => placements.length > 0).length;
+    if (!available) {
+        return 0;
     }
-    return roll < 0.7 ? 1 : 0;
+    const appearChance = 0.12 + 0.7 * settings.difficultyValue;
+    if (Math.random() >= appearChance) {
+        return 0;
+    }
+    // 大盘多链成功率骤降、每次失败都烧一轮 refine——栋数按面积封顶
+    const areaCap = settings.boardCells > 240 ? 2 : settings.boardCells > 140 ? 3 : 5;
+    const cap = Math.min(settings.maxBuildingCount, available, areaCap);
+    let count = 1;
+    while (count < cap && Math.random() < 0.3 + 0.4 * settings.difficultyValue) {
+        count++;
+    }
+    return count;
 }
 
-function canUseLetters(byLetter, settings) {
-    if (settings.letterMode === 'none') {
+function canUseBuildings(byBuilding, settings) {
+    if (settings.buildingMode === 'none') {
         return false;
     }
-    if (settings.requireAllLetterFamilies) {
-        return byLetter.every(placements => placements.length > 0);
+    if (settings.requireAllBuildingFamilies) {
+        return byBuilding.every(placements => placements.length > 0);
     }
-    return byLetter.some(placements => placements.length > 0);
+    return byBuilding.some(placements => placements.length > 0);
 }
 
 // 大盘上单次 refine/候选都很贵，按面积调低打磨强度换取生成时间可控（质量对大盘影响可接受）。
@@ -963,13 +1004,87 @@ function scaleEffortForSize(settings, size) {
         settings.mutationTargetWindows = 1;
         settings.mutationCutSamples = Math.min(settings.mutationCutSamples, 3);
         settings.mutationWaypointSamples = Math.min(settings.mutationWaypointSamples, 3);
-        // 超大盘（>22×22）字母只占一格视觉意义有限，且强制链会拖垮生成——直接跳过
-        settings.letterMode = 'none';
     }
+}
+
+// 组合教学楼：随难度低概率把 2~3 栋不同的楼拼成一个区域
+function tryComboPlacement(size, settings) {
+    const t = settings.difficultyValue;
+    if (settings.buildingMode === 'none' || t < 0.8 || Math.random() > 0.18 + 0.12 * t) {
+        return null;
+    }
+    const [w, h] = size;
+    const count = t >= 0.98 && Math.random() < 0.3 ? 3 : 2;
+    // 三楼组合限定含 四教+五教（小形状）：全量枚举首个调用即完成且成本可控；
+    // 双楼组合不限
+    const indices = count === 3
+        ? [shuffleArray([0, 1, 2])[0], 3, 4].sort((a, b) => a - b)
+        : shuffleArray([0, 1, 2, 3, 4]).slice(0, 2).sort((a, b) => a - b);
+    const { shapes } = comboShapes(indices);
+    for (let attempt = 0; attempt < 24; attempt++) {
+        const combo = shapes[random(shapes.length)];
+        const shape = combo.cells;
+        let maxX = 0;
+        let maxY = 0;
+        for (const [x, y] of shape) {
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        }
+        if (maxX >= w || maxY >= h) {
+            continue;
+        }
+        const ox = random(w - maxX);
+        const oy = random(h - maxY);
+        if (!touchedSides(shape, ox, oy, w, h).length) {
+            continue;
+        }
+        const placement = analyzePlacement(-1, shape, ox, oy, w, h);
+        if (!placement) {
+            continue;
+        }
+        placement.markers = combo.parts.map((part, index) => {
+            const [px, py] = part[random(part.length)];
+            return { buildingIndex: indices[index], markerCell: [px + ox, py + oy] };
+        });
+        return placement;
+    }
+    return null;
+}
+
+// 通道阻断：从答案未穿过的内部边里挑几条，画线阶段直接封死。
+// 答案不经过 ⇒ 题目仍可解；被封的两格永远同区（渲染成融合格）。
+function pickBlockedEdges(answer, size, settings) {
+    const t = settings.difficultyValue;
+    if (t < 0.06) {
+        return [];
+    }
+    const [w, h] = size;
+    const barrier = answer.createBarrier();
+    const candidates = [];
+    for (let ex = 0; ex < w; ex++) {
+        for (let ey = 1; ey < h; ey++) {
+            if (!barrier[ex][ey][0]) {
+                candidates.push([ex, ey, 0]);
+            }
+        }
+    }
+    for (let ex = 1; ex < w; ex++) {
+        for (let ey = 0; ey < h; ey++) {
+            if (!barrier[ex][ey][1]) {
+                candidates.push([ex, ey, 1]);
+            }
+        }
+    }
+    shuffleArray(candidates);
+    // 与路名同量级：按候选边比例给配额（难度越高越密），解锁后至少 1 条
+    const rate = 0.05 + 0.10 * t;
+    const target = Math.max(1, Math.round(candidates.length * rate));
+    return candidates.slice(0, target);
 }
 
 export function generatePuzzle(size, level = 0, options = {}) {
     const settings = createGenerationSettings(level, options);
+    settings.boardCells = size[0] * size[1];
     scaleEffortForSize(settings, size);
     const t = settings.difficultyValue;
     const startedAt = Date.now();
@@ -977,23 +1092,35 @@ export function generatePuzzle(size, level = 0, options = {}) {
     // 让深层的变异/修补循环也能感知预算，防止单次 refine 吃掉整个 deadline
     settings.deadlineAt = deadline;
     let answer = null;
-    const letters = [];
-    const byLetter = placementsByLetter(size);
+    const buildings = [];
+    const byBuilding = placementsByBuilding(size);
 
-    if (canUseLetters(byLetter, settings)) {
+    // 高难度：先试组合楼（失败自然回落到单楼/普通流程）
+    // 组合候选不做变异打磨：拼合链本身已是题面主特征，
+    // 大盘上一次 refine 数百毫秒、失败即白费，是生成耗时的最大波动源
+    const comboPlacement = tryComboPlacement(size, settings);
+    if (comboPlacement) {
+        const candidate = generateAnswerWithBuildings(size, [comboPlacement]);
+        if (candidate && validBuildingAnswer(candidate, size, settings)) {
+            answer = candidate;
+            buildings.push(...comboPlacement.markers);
+        }
+    }
+
+    if (!answer && canUseBuildings(byBuilding, settings)) {
         // 字母阶段最多占预算 60%，留时间给普通题兜底
-        const letterDeadline = startedAt + settings.generationBudgetMs * 0.6;
-        const desired = pickDesiredLetterCount(byLetter, settings);
+        const buildingDeadline = startedAt + settings.generationBudgetMs * 0.6;
+        const desired = pickDesiredBuildingCount(byBuilding, settings);
         for (let count = desired; count >= 1 && !answer; count--) {
-            const plans = buildLetterPlans(byLetter, count, settings.requireAllLetterFamilies);
-            const candidates = collectLetterCandidates(size, plans, byLetter, settings, letterDeadline);
+            const plans = buildBuildingPlans(byBuilding, count, settings.requireAllBuildingFamilies);
+            const candidates = collectBuildingCandidates(size, plans, byBuilding, settings, buildingDeadline);
             if (candidates.length) {
                 // 先在"有合格候选的字母组合"里均匀抽一个，再取组内最高分——
                 // 全局 argmax 会系统性偏向链形态更好 refine 的字母（U/C 刷屏的根源）
                 const byPlanKey = new Map();
                 for (const entry of candidates) {
                     const key = entry.chosen
-                        .map(placement => placement.letterIndex)
+                        .map(placement => placement.buildingIndex)
                         .sort((a, b) => a - b)
                         .join('+');
                     if (!byPlanKey.has(key)) {
@@ -1003,12 +1130,12 @@ export function generatePuzzle(size, level = 0, options = {}) {
                 }
                 const group = randomItem([...byPlanKey.values()]);
                 const best = group.reduce((bestSoFar, entry) =>
-                    scoreLetterAnswer(entry.candidate, size, t, settings) >
-                        scoreLetterAnswer(bestSoFar.candidate, size, t, settings) ? entry : bestSoFar);
+                    scoreBuildingAnswer(entry.candidate, size, t, settings) >
+                        scoreBuildingAnswer(bestSoFar.candidate, size, t, settings) ? entry : bestSoFar);
                 answer = best.candidate;
                 for (const placement of best.chosen) {
-                    letters.push({
-                        letterIndex: placement.letterIndex,
+                    buildings.push({
+                        buildingIndex: placement.buildingIndex,
                         markerCell: placement.cells[random(placement.cells.length)],
                     });
                 }
@@ -1071,6 +1198,7 @@ export function generatePuzzle(size, level = 0, options = {}) {
         }
     }
 
-    const sign = fillSigns(answer, size, t, letters, settings);
-    return { size, sign, answer, letters, settings };
+    const sign = fillSigns(answer, size, t, buildings, settings);
+    const blockedEdges = pickBlockedEdges(answer, size, settings);
+    return { size, sign, answer, buildings, settings, blockedEdges };
 }

@@ -3,19 +3,19 @@
 import {
     CHALLENGE_DIFFICULTIES,
     MAX_CHALLENGE_SIZE,
-    challengeLettersSupported,
+    challengeBuildingsSupported,
     MIN_CHALLENGE_SIZE,
     MODE_CHALLENGE,
     MODE_CLASSIC,
     MODE_CUSTOM,
+    MODE_ENDLESS,
     MODE_TIMED,
     TIMED_MODE_OPTIONS,
 } from '../core/game-state.js';
 import { escapeHtml } from '../lib/html.js';
 import { SENSITIVITY_MAX, SENSITIVITY_MIN, getSensitivity, setSensitivity } from '../lib/settings.js';
 import { setThemePreference, themePreference } from '../lib/theme.js';
-
-const CLOSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>';
+import { CLOSE_ICON } from './icons.js';
 
 const THEME_OPTIONS = [
     ['system', '跟随系统'],
@@ -26,6 +26,7 @@ const THEME_OPTIONS = [
 const MODE_LABELS = {
     [MODE_CLASSIC]: '经典模式',
     [MODE_TIMED]: '计时模式',
+    [MODE_ENDLESS]: '无尽模式',
     [MODE_CHALLENGE]: '挑战模式',
     [MODE_CUSTOM]: '题目工坊',
 };
@@ -157,7 +158,7 @@ function toggleRow(name, checked, label, hint, disabled = false) {
 function render(state) {
     const timedButtonLabel = state.currentMode === MODE_TIMED ? '重新开始计时' : '进入计时模式';
     const challengeButtonLabel = state.currentMode === MODE_CHALLENGE ? '重新生成挑战' : '进入挑战模式';
-    const challengeLettersEnabled = challengeLettersSupported(state.challenge.config);
+    const challengeBuildingsEnabled = challengeBuildingsSupported(state.challenge.config);
 
     return `
         <div class="mode-menu-backdrop"></div>
@@ -196,6 +197,19 @@ function render(state) {
                 ` : lockCopy(3.0, '，冲到上 3 就能开刷')}
             </div>
 
+            <div class="mode-menu-section ${state.currentMode === MODE_ENDLESS ? 'active' : ''}">
+                <div class="mode-menu-section-title">
+                    <span>无尽模式</span>
+                    ${activeBadge(state.currentMode, MODE_ENDLESS)}
+                </div>
+                ${state.unlocks.endless ? `
+                    <p class="mode-summary">${state.endless.summary}</p>
+                    <div class="mode-actions">
+                        <button type="button" class="mode-primary" data-action="start-endless">${state.currentMode === MODE_ENDLESS ? '再战一轮' : '进入无尽模式'}</button>
+                    </div>
+                ` : lockCopy(3.3, '，每题限时的生存挑战')}
+            </div>
+
             <div class="mode-menu-section ${state.currentMode === MODE_CHALLENGE ? 'active' : ''}">
                 <div class="mode-menu-section-title">
                     <span>挑战模式</span>
@@ -230,7 +244,7 @@ function render(state) {
                     <div class="challenge-range-hint">${MIN_CHALLENGE_SIZE} - ${MAX_CHALLENGE_SIZE}</div>
                     <div class="mode-pill-row">${difficultyButtons(state.challenge.config.difficulty)}</div>
                     <div class="challenge-toggles">
-                        ${toggleRow('letters', state.challenge.config.letters, '字母题', '固定朝向的 U / S / T / C', !challengeLettersEnabled)}
+                        ${toggleRow('buildings', state.challenge.config.buildings, '教学楼题', '一二三四五教，可旋转与镜像', !challengeBuildingsEnabled)}
                         ${toggleRow('colleges', state.challenge.config.colleges, '书院题', '区域里只能留一种颜色')}
                         ${toggleRow('pairs', state.challenge.config.pairs, '组别题', '红专并进 / 理实交融')}
                         ${toggleRow('roads', state.challenge.config.roads, '路名题', '必须穿过黑色路名')}
@@ -272,14 +286,14 @@ export function setupModeMenu(button, handlers) {
     function updateChallengeFromInputs() {
         const width = Number(panel.querySelector('input[name="width"]')?.value);
         const height = Number(panel.querySelector('input[name="height"]')?.value);
-        const letters = panel.querySelector('input[name="letters"]')?.checked;
+        const buildings = panel.querySelector('input[name="buildings"]')?.checked;
         const colleges = panel.querySelector('input[name="colleges"]')?.checked;
         const pairs = panel.querySelector('input[name="pairs"]')?.checked;
         const roads = panel.querySelector('input[name="roads"]')?.checked;
         handlers.updateChallengeConfig({
             width,
             height,
-            letters,
+            buildings,
             colleges,
             pairs,
             roads,
@@ -304,13 +318,13 @@ export function setupModeMenu(button, handlers) {
             if (heightInput) heightInput.value = config.height;
             if (widthValue) widthValue.textContent = String(config.width);
             if (heightValue) heightValue.textContent = String(config.height);
-            for (const name of ['letters', 'colleges', 'pairs', 'roads']) {
+            for (const name of ['buildings', 'colleges', 'pairs', 'roads']) {
                 const box = panel.querySelector(`input[name="${name}"]`);
                 if (box) box.checked = config[name];
             }
-            const lettersBox = panel.querySelector('input[name="letters"]');
-            if (lettersBox) {
-                lettersBox.disabled = !challengeLettersSupported(config);
+            const buildingsBox = panel.querySelector('input[name="buildings"]');
+            if (buildingsBox) {
+                buildingsBox.disabled = !challengeBuildingsSupported(config);
             }
         }
         const noteElement = panel.querySelector('.mode-note');
@@ -334,6 +348,10 @@ export function setupModeMenu(button, handlers) {
         root.querySelector('[data-action="start-timed"]')?.addEventListener('click', async () => {
             close();
             await handlers.startTimed();
+        });
+        root.querySelector('[data-action="start-endless"]')?.addEventListener('click', async () => {
+            close();
+            await handlers.startEndless();
         });
         root.querySelector('[data-action="start-challenge"]')?.addEventListener('click', async () => {
             updateChallengeFromInputs();
