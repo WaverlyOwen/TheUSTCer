@@ -117,6 +117,10 @@ export function createDebugApi({
         assertIdle();
         hideAnswer();
         const puzzle = getPuzzle();
+        if (!puzzle?.answer) {
+            // 工坊题可以不带答案，别让调试口一个 TypeError 崩出去
+            throw new Error('Current puzzle has no stored answer to replay.');
+        }
         const userPath = getUserPath();
         userPath.clear();
         for (const move of puzzle.answer.queue) {

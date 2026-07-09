@@ -41,7 +41,6 @@ import {
     shouldBlockInteraction,
     timedSession,
     unlocksForLevel,
-    challengeBuildingsSupported,
 } from './core/game-state.js';
 import { Path, pokeDepth } from './core/path.js';
 import { checkSolution } from './core/validator.js';
@@ -162,6 +161,12 @@ async function startGame() {
     let customRecord = null;   // 题目工坊：当前游玩的自定义题记录
     let editorOpen = false;
     let tutorialOpen = false;
+    let menuOpen = false;
+    let importOpen = false;
+    // 模式纪元：每次切换/开启新一轮自增。胜利过渡的 setTimeout 回调
+    // 先对一下纪元，过期（用户已切走）就只收尾不换题，防止在新模式下
+    // 补发旧模式的换题/结业动画
+    let modeEpoch = 0;
 
     function saveClassic() {
         if (persistClassic) {
@@ -405,7 +410,9 @@ async function startGame() {
     }
 
     function isInteractionBlocked() {
-        return editorOpen || tutorialOpen || shouldBlockInteraction({
+        // 菜单/导入弹层打开时也要挡住棋盘输入：时钟此时已冻结（pushPause），
+        // 不挡的话可以停表解题，还会把 Tab/Ctrl 的换题、看答案惩罚误触进游戏
+        return editorOpen || tutorialOpen || menuOpen || importOpen || shouldBlockInteraction({
             transitionBusy,
             generating,
             currentMode,
@@ -755,47 +762,71 @@ async function startGame() {
         boardViewport.layout();
     }
 
+    // 离开计时/无尽模式（含重开一轮）即结算当前轮：无尽的成绩立刻记入最佳，
+    // 否则中途弃局这一轮就丢了；计时轮固定为已结束，菜单摘要不再挂着一个
+    // 永远走不完的"倒计时 00:00"
+    function settleActiveRun() {
+        if (currentMode === MODE_TIMED && timedRun && !timedRun.ended) {
+            timedRun.ended = true;
+            timedRun.finalCleared = timedRun.cleared;
+        }
+        if (currentMode === MODE_ENDLESS && endlessRun && !endlessRun.ended) {
+            endlessRun.ended = true;
+            saveEndlessBest(endlessRun.cleared);
+        }
+    }
+
     async function enterClassicMode({ refresh = false } = {}) {
         const changed = currentMode !== MODE_CLASSIC;
+        settleActiveRun();
         resumeClassicRun();
         currentMode = MODE_CLASSIC;
         if (changed || refresh || !board) {
+            modeEpoch++;
             await newBoard();
         }
         refreshPanels();
     }
 
     async function startTimedMode() {
+        settleActiveRun();
         if (currentMode === MODE_CLASSIC) {
             suspendClassicRun();
         }
         currentMode = MODE_TIMED;
+        modeEpoch++;
         timedRun = timedSession(timedDuration);
         await newBoard();
         refreshPanels();
     }
 
     async function startChallengeMode() {
+        settleActiveRun();
         if (currentMode === MODE_CLASSIC) {
             suspendClassicRun();
         }
         currentMode = MODE_CHALLENGE;
+        modeEpoch++;
         challengeRun = challengeSession(challengeConfig);
         await newBoard({ forceLoading: true });
         refreshPanels();
     }
 
     async function startEndlessMode() {
+        settleActiveRun();
         if (currentMode === MODE_CLASSIC) {
             suspendClassicRun();
         }
         currentMode = MODE_ENDLESS;
+        modeEpoch++;
         endlessRun = endlessSession();
         await newBoard();
         refreshPanels();
     }
 
     async function resetClassicProgress() {
+        settleActiveRun();
+        modeEpoch++;
         classicRun = persistClassic
             ? resetClassicRun()
             : { level: 0, startedAt: Date.now(), finishedAt: null, pausedMs: 0 };
@@ -817,6 +848,7 @@ async function startGame() {
 
     async function handleSuccess() {
         transitionBusy = true;
+        const epoch = modeEpoch;
         board.winEffect();
 
         if (currentMode === MODE_CUSTOM) {
@@ -841,6 +873,12 @@ async function startGame() {
             refreshPanels();
 
             setTimeout(async () => {
+                if (epoch !== modeEpoch) {
+                    // 过渡期内玩家已切到别的模式：不能在人家的棋盘上补换题/放动画
+                    transitionBusy = false;
+                    refreshPanels();
+                    return;
+                }
                 await newBoard();
                 refreshPanels();
                 if (newlyUnlocked.length) {
@@ -867,6 +905,11 @@ async function startGame() {
             hud.bumpPrimary();
             refreshPanels();
             setTimeout(async () => {
+                if (epoch !== modeEpoch) {
+                    transitionBusy = false;
+                    refreshPanels();
+                    return;
+                }
                 await newBoard({ forceLoading: endlessRun.size[0] * endlessRun.size[1] >= 100 });
                 transitionBusy = false;
                 refreshPanels();
@@ -880,6 +923,11 @@ async function startGame() {
             hud.bumpPrimary();
             refreshPanels();
             setTimeout(async () => {
+                if (epoch !== modeEpoch) {
+                    transitionBusy = false;
+                    refreshPanels();
+                    return;
+                }
                 if (timedRemainingMs() <= 0) {
                     transitionBusy = false;
                     await maybeEndTimedRun();
@@ -896,6 +944,11 @@ async function startGame() {
         hud.bumpPrimary();
         refreshPanels();
         setTimeout(async () => {
+            if (epoch !== modeEpoch) {
+                transitionBusy = false;
+                refreshPanels();
+                return;
+            }
             await newBoard({ forceLoading: true });
             transitionBusy = false;
             refreshPanels();
@@ -1038,10 +1091,12 @@ async function startGame() {
     // ===== 题目工坊：游玩 / 编辑 / 分享 / 导入 =====
 
     async function playCustomPuzzle(record) {
+        settleActiveRun();
         if (currentMode === MODE_CLASSIC) {
             suspendClassicRun();
         }
         currentMode = MODE_CUSTOM;
+        modeEpoch++;
         customRecord = record;
         await newBoard();
         refreshPanels();
@@ -1096,6 +1151,10 @@ async function startGame() {
     // 启动时的 #p= 分享链接：确认后入列表并直接游玩
     function showImportConfirm(record) {
         pushPause();
+        importOpen = true;
+        // 与模式菜单一致：弹层期间摘掉滑动检测，手机上在面板上划动
+        // 不该画到背后的棋盘
+        swipeDetector?.removeEventListener();
         const root = document.createElement('div');
         root.id = 'import-dialog-root';
         root.innerHTML = `
@@ -1115,6 +1174,8 @@ async function startGame() {
         document.body.appendChild(root);
         const dismiss = () => {
             root.remove();
+            importOpen = false;
+            swipeDetector?.addEventListener();
             popPause();
         };
         root.querySelector('[data-action="import"]').addEventListener('click', async () => {
@@ -1153,6 +1214,9 @@ async function startGame() {
                     break;
                 case MODE_ENDLESS:
                     // 无尽模式没有可设的关卡概念
+                    break;
+                case MODE_CUSTOM:
+                    // 工坊试玩是临时会话：不许顺手改写经典进度
                     break;
                 case MODE_CLASSIC:
                 default:
@@ -1203,10 +1267,12 @@ async function startGame() {
         getState: buildModeMenuState,
         onOpen: () => {
             pushPause();
+            menuOpen = true;
             swipeDetector?.removeEventListener();
         },
         onClose: () => {
             popPause();
+            menuOpen = false;
             swipeDetector?.addEventListener();
         },
         switchMode: () => enterClassicMode(),
@@ -1288,8 +1354,15 @@ async function startGame() {
                 return newBoard();
             },
             syncUserLine,
-            showAnswer: () => board?.showAnswer(),
-            hideAnswer: () => board?.hideAnswer(),
+            // 经 setAnswerShown 同步工具栏开关与主题重建时的重放状态
+            showAnswer: () => {
+                board?.showAnswer();
+                setAnswerShown(true);
+            },
+            hideAnswer: () => {
+                board?.hideAnswer();
+                setAnswerShown(false);
+            },
             playEnding,
             resetProgress: () => {
                 classicRun = persistClassic

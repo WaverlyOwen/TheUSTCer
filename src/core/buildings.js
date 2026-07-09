@@ -248,10 +248,6 @@ export function placementsByBuilding(size) {
     return result;
 }
 
-export function hasAnyBuildingPlacement(size) {
-    return placementsByBuilding(size).some(placements => placements.length > 0);
-}
-
 // ===== 组合教学楼：算法枚举"若干栋楼拼成一块"的全部连通精确拼合 =====
 // 判题时区域归一化后查形状键集合；生成时从形状列表随机取一个走链式放置。
 // 多重集（去重排序的楼编号）→ { keys: Set, shapes: [{cells, parts}] }，惰性计算并缓存。
@@ -320,18 +316,29 @@ export function comboShapes(indices) {
                         if (!union || !isConnected(union)) {
                             continue;
                         }
-                        const normalized = normalize(union);
-                        // 以"拼合形状 + 各部分位置"整体去重
+                        // 整体平移到 0 基（不能各部分独立归一化：那会丢掉部分间的
+                        // 相对位置，既让去重误杀不同的标记格布局，也让消费方
+                        // （generator 的 tryComboPlacement）拿到负坐标的形状）
+                        let minX = Infinity;
+                        let minY = Infinity;
+                        for (const [x, y] of union) {
+                            minX = Math.min(minX, x);
+                            minY = Math.min(minY, y);
+                        }
                         const placedPart = shape.map(([x, y]) => [x + dx, y + dy]);
+                        const shiftedParts = [...partial.parts, placedPart].map(part =>
+                            part.map(([x, y]) => [x - minX, y - minY])
+                                .sort((a, b) => a[0] - b[0] || a[1] - b[1]));
+                        const normalized = normalize(union);
                         const dedupKey = cellsKey(normalized) + '|' +
-                            [...partial.parts, placedPart].map(part => cellsKey(normalize(part))).join('#');
+                            shiftedParts.map(cellsKey).join('#');
                         if (seenKeys.has(dedupKey)) {
                             continue;
                         }
                         seenKeys.add(dedupKey);
                         next.push({
-                            cells: union,
-                            parts: [...partial.parts, placedPart],
+                            cells: normalized,
+                            parts: shiftedParts,
                         });
                     }
                 }

@@ -168,6 +168,17 @@
     color: #8a6d1a;
 }
 
+/* 证书卡固定亮色，不吃主题变量：悬停用金色淡染（只在真悬停设备启用） */
+@media (hover: hover) {
+    .certificate-buttons button:hover {
+        background: #fdf3d8;
+    }
+}
+
+.certificate-buttons button:active {
+    transform: scale(0.96);
+}
+
 .milestone-overlay {
     position: fixed;
     inset: 0;
@@ -233,6 +244,8 @@
     padding: 1vh 2.2vh;
     color: white;
     background: #111;
+    /* 里程碑卡固定亮色：描边跟卡走，不吃主题的 --control-border（暗色下会漏灰边） */
+    border-color: #111;
 }
 
 .milestone-panel.gold .milestone-title {

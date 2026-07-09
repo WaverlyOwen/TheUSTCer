@@ -9,6 +9,9 @@ const BASE_SWIPE_THRESHOLD = 40;
 // getSensitivity ∈ [0.5, 1.5]：越高阈值越短越跟手。
 // 第二根手指落下（捏合缩放手势）时立即放弃当前滑动跟踪，避免画线与缩放打架。
 export function createSwipeDetector(actions, getSensitivity = () => 1) {
+    // 是否在跟踪一次滑动要用独立标志，不能拿坐标当哨兵：
+    // 屏幕最左/最上边缘的合法触点 clientX/Y 恰好是 0，会被误判成"未跟踪"
+    let tracking = false;
     let x = 0;
     let y = 0;
 
@@ -17,32 +20,31 @@ export function createSwipeDetector(actions, getSensitivity = () => 1) {
 
     const handleTouchStart = (event) => {
         if (event.touches.length > 1) {
-            x = 0;
-            y = 0;
+            tracking = false;
             return;
         }
         // 从按钮/表单控件上起手的触摸不算画线起点：
         // 否则按住顶栏图标一拖就会往棋盘上灌移动指令
         if (event.target.closest?.('button, input, select, textarea, a')) {
-            x = 0;
-            y = 0;
+            tracking = false;
             return;
         }
         const touch = event.touches[0];
+        tracking = true;
         x = touch.clientX;
         y = touch.clientY;
     };
 
     const handleTouchMove = (event) => {
         if (event.touches.length > 1) {
-            x = 0;
-            y = 0;
+            tracking = false;
+            return;
+        }
+        if (!tracking) {
+            // 没在跟踪的触摸（从按钮起手等）不吞默认行为，让控件正常滚动/响应
             return;
         }
         event.preventDefault();
-        if (!x || !y) {
-            return;
-        }
         const touch = event.touches[0];
         const diffX = touch.clientX - x;
         const diffY = touch.clientY - y;
@@ -60,8 +62,7 @@ export function createSwipeDetector(actions, getSensitivity = () => 1) {
     };
 
     const handleTouchEnd = () => {
-        x = 0;
-        y = 0;
+        tracking = false;
     };
 
     return {

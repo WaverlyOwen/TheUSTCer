@@ -20,6 +20,8 @@
     --note: #6a4f0b;
     --danger: #d64545;
     --gold: #e8b93c;
+    /* --gold 的 RGB 分量：供发光效果按不同透明度组合 rgba() 用 */
+    --gold-glow: 232, 185, 60;
     --toolbar-bg: rgba(255, 255, 255, 0.72);
     --toolbar-border: rgba(0, 0, 0, 0.08);
     --clip-bg: rgba(255, 255, 255, 0.28);
@@ -46,6 +48,7 @@
     --note: #d8b45a;
     --danger: #ea6a6a;
     --gold: #e8b93c;
+    --gold-glow: 232, 185, 60;
     --toolbar-bg: rgba(19, 22, 28, 0.72);
     --toolbar-border: rgba(255, 255, 255, 0.07);
     --clip-bg: rgba(23, 27, 34, 0.32);
@@ -57,7 +60,7 @@ body, html {
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
-    font-family: "Jua", sans-serif;
+    font-family: "Jua", "ZCOOL KuaiLe", sans-serif;
     background-color: var(--bg);
     color: var(--fg);
     transition: background-color 0.25s ease, color 0.25s ease;
@@ -70,6 +73,21 @@ body, html {
 input, textarea, select {
     -webkit-user-select: text;
     user-select: text;
+}
+
+/* 复选框跟随主题色（菜单开关、编辑器道路行） */
+input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+/* 键盘导航焦点环：只在 focus-visible 时显示，鼠标/触摸点击不留框 */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+    outline: none;
 }
 
 /* ===== 顶栏 ===== */
@@ -138,18 +156,6 @@ input, textarea, select {
     stroke-linejoin: round;
 }
 
-#tool-theme .icon-sun {
-    display: none;
-}
-
-:root[data-theme="dark"] #tool-theme .icon-sun {
-    display: block;
-}
-
-:root[data-theme="dark"] #tool-theme .icon-moon {
-    display: none;
-}
-
 @media (max-width: 560px) {
     #toolbar {
         padding-inline: 8px;
@@ -158,12 +164,6 @@ input, textarea, select {
     .toolbar-side {
         gap: 1px;
         padding: 4px;
-    }
-
-    .tool-button {
-        width: 37px;
-        height: 37px;
-        padding: 7.5px;
     }
 }
 
@@ -223,7 +223,7 @@ input, textarea, select {
     color: var(--on-accent);
     border-radius: 999px;
     font-family: "ZCOOL KuaiLe", sans-serif;
-    font-size: 14px;
+    font-size: min(1.9vh, 3.8vw);
     opacity: 0;
     transform: translateY(-8px);
     transition: opacity 0.25s ease, transform 0.25s ease;
@@ -356,14 +356,14 @@ input, textarea, select {
 .user-line.win {
     stroke: var(--gold);
     animation: win-breathe 0.9s ease;
-    filter: drop-shadow(0 0 4px rgba(232, 185, 60, 0.7));
+    filter: drop-shadow(0 0 4px rgba(var(--gold-glow), 0.7));
 }
 
 @keyframes win-breathe {
-    0%, 100% { filter: drop-shadow(0 0 2px rgba(232, 185, 60, 0.45)); }
-    30% { filter: drop-shadow(0 0 9px rgba(232, 185, 60, 0.95)); }
-    60% { filter: drop-shadow(0 0 4px rgba(232, 185, 60, 0.6)); }
-    85% { filter: drop-shadow(0 0 8px rgba(232, 185, 60, 0.9)); }
+    0%, 100% { filter: drop-shadow(0 0 2px rgba(var(--gold-glow), 0.45)); }
+    30% { filter: drop-shadow(0 0 9px rgba(var(--gold-glow), 0.95)); }
+    60% { filter: drop-shadow(0 0 4px rgba(var(--gold-glow), 0.6)); }
+    85% { filter: drop-shadow(0 0 8px rgba(var(--gold-glow), 0.9)); }
 }
 
 .user-line.fail {
@@ -399,7 +399,7 @@ text {
 .dot.win {
     stroke: var(--gold);
     animation: win-breathe 0.9s ease;
-    filter: drop-shadow(0 0 4px rgba(232, 185, 60, 0.7));
+    filter: drop-shadow(0 0 4px rgba(var(--gold-glow), 0.7));
 }
 
 .dot.fail {
@@ -423,6 +423,26 @@ text {
     box-shadow: 0 2vh 7vh var(--shadow);
 }
 
+/* 面板入场：淡入 + 轻微放大，与加载遮罩 0.22s 渐变同节奏。
+   用独立 scale 属性做动画，不碰 transform（面板定位靠 translate，动 transform 会打架） */
+@keyframes panel-in {
+    from {
+        opacity: 0;
+        scale: 0.96;
+    }
+    to {
+        opacity: 1;
+        scale: 1;
+    }
+}
+
+.mode-menu-panel,
+.import-panel,
+.editor-panel,
+.tutorial-panel {
+    animation: panel-in 0.22s ease;
+}
+
 /* ===== 通用按钮 ===== */
 
 button {
@@ -434,6 +454,38 @@ button {
     background-color: var(--panel-solid);
     color: var(--fg);
     cursor: pointer;
+}
+
+/* 禁用态统一压暗（教程导航的 .tutorial-nav:disabled 更具体，保持它自己的 0.35） */
+button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* 悬停反馈：与 .tool-button 同一套 hover-veil 语言；只在真悬停设备启用，防触屏粘滞 */
+@media (hover: hover) {
+    .mode-pill:hover:not(:disabled):not(.selected),
+    .mode-secondary:hover:not(:disabled),
+    .workshop-button:hover:not(:disabled),
+    .mode-menu-close:hover,
+    .editor-close:hover {
+        background-color: var(--hover-veil);
+    }
+
+    /* 主题色实底按钮盖不住 hover-veil，改用轻微降透明度 */
+    .mode-primary:hover:not(:disabled),
+    .mode-pill.selected:hover {
+        opacity: 0.85;
+    }
+}
+
+.mode-pill:active:not(:disabled),
+.mode-primary:active:not(:disabled),
+.mode-secondary:active:not(:disabled),
+.workshop-button:active:not(:disabled),
+.mode-menu-close:active,
+.editor-close:active {
+    transform: scale(0.96);
 }
 
 /* ===== 加载遮罩 ===== */
@@ -1148,13 +1200,13 @@ button {
 
     .workshop-button {
         flex: 1;
-        min-height: 34px;
+        min-height: 40px;
     }
 
     .editor-panel {
         inset: 6px;
         padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
-        border-radius: 14px;
+        border-radius: 16px;
     }
 
     .editor-actions .mode-primary,

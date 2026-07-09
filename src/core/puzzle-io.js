@@ -1,6 +1,7 @@
 "use strict";
 
 import { load, save } from '../lib/storage.js';
+import { BUILDING_MASKS } from './buildings.js';
 import { Path } from './path.js';
 
 // 题目序列化格式（题目工坊 / 链接分享共用）：
@@ -45,7 +46,6 @@ export const CELL_NAMES = [
 ];
 
 export const CELL_COLORS = ["#e69138", "#4272b8", "#4a9e6b", "#8e63b5", "#d64545", "#4272b8"];
-export const BUILDING_CELL_COLOR = "#3a3f4b";
 
 // 阻断边三元组 [ex, ey, axis] → Path 的 edgeKey 集合（axis 0 横边 1 竖边）
 export function blockedEdgeSet(blockedEdges, h) {
@@ -109,11 +109,16 @@ export function deserializePuzzle(record) {
     const size = [record.w, record.h];
     let answer = null;
     if (Array.isArray(record.answer) && record.answer.length) {
-        answer = new Path(size);
+        // 重放必须带上阻断边：否则穿过阻断通道的答案也能"走到出口"，
+        // 题目被当成有解，展示的却是玩家画不出来的线
+        answer = new Path(size, blockedEdgeSet(record.blockedEdges ?? [], record.h));
         for (const move of record.answer) {
-            answer.step(move);
+            if (!answer.step(move)) {
+                answer = null;
+                break;
+            }
         }
-        if (!answer.finished) {
+        if (answer && !answer.finished) {
             answer = null;
         }
     }
@@ -169,11 +174,29 @@ export function validateRecord(record) {
     }
     const paletteLength = record.palette?.length ?? 0;
     const roadNamesLength = record.roadNames?.length ?? 0;
-    const validCellType = (t) => t === 0 || (t >= 7 && t <= 12) || t === 13 ||
-        (t >= CUSTOM_TYPE_BASE && t < CUSTOM_TYPE_BASE + paletteLength);
-    const validRoadName = (orient, idx) =>
+    // 类型码之外，子编号（第几个字/第几栋楼）也必须卡住范围：判题会直接
+    // 拿它当下标（红专理实的配对槽位、楼的朝向表），越界的记录能通过校验
+    // 的话，玩家一画完路径就是一个 TypeError
+    const validCellSign = ([t, sub]) => {
+        if (t === 0) {
+            return true;   // 空白/底纹格，sub 只当真值用
+        }
+        if (!Number.isInteger(t) || !Number.isInteger(sub) || sub < 0) {
+            return false;
+        }
+        if (t >= 7 && t <= 12) {
+            return sub < CELL_NAMES[t - 7].length;
+        }
+        if (t === 13) {
+            return sub < BUILDING_MASKS.length;
+        }
+        // 自定义色格的字编号只影响显示（渲染端缺字回退为空），不做上限卡制，
+        // 免得误伤旧存档
+        return t >= CUSTOM_TYPE_BASE && t < CUSTOM_TYPE_BASE + paletteLength;
+    };
+    const validRoadName = (orient, idx) => Number.isInteger(idx) && (
         (idx >= 0 && idx < ROAD_NAMES[orient].length) ||
-        (idx >= CUSTOM_ROAD_BASE && idx < CUSTOM_ROAD_BASE + roadNamesLength);
+        (idx >= CUSTOM_ROAD_BASE && idx < CUSTOM_ROAD_BASE + roadNamesLength));
 
     if (!Array.isArray(sign) || sign.length < w + 1) {
         return false;
@@ -191,7 +214,7 @@ export function validateRecord(record) {
             }
             // 类型码/路名号只校验判题会读到的 w×h 区（外圈是生成器的占位行列）
             if (i < w && j < h) {
-                if (!validCellType(entry[2][0])) {
+                if (!validCellSign(entry[2])) {
                     return false;
                 }
                 if ((entry[0][0] && !validRoadName(0, entry[0][1])) ||

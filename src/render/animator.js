@@ -81,6 +81,9 @@ export class PathAnimator {
             this.prefix.push(this.prefix[i] + stepLength(this.renderQueue, i));
         }
         this.line.setAttribute('d', buildPathD(this.renderQueue));
+        // d 已换成新几何，可见长度要同帧跟上：等下一个 rAF 再裁的话，
+        // 旧的更长的 dasharray 会在新几何上闪出一帧多余的线段
+        this.applyDash();
     }
 
     applyDash() {

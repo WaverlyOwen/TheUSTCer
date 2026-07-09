@@ -11,7 +11,9 @@ const BASE_COMMIT = 0.75;
 const DEADZONE = 0.05;
 
 export function attachPointer(svg, userPath, callbacks) {
-    let drawing = false;
+    // 记住起笔的 pointerId：第二根手指/第二个指针的 move/up 一概不理，
+    // 否则触屏上第二根手指会把线头拽飞、抬起时还会终止第一根的笔画
+    let drawingPointerId = null;
     const commitThreshold = () => {
         const sensitivity = Math.min(1.5, Math.max(0.5, callbacks.getSensitivity?.() ?? 1));
         return Math.min(0.95, Math.max(0.5, BASE_COMMIT / sensitivity));
@@ -92,7 +94,7 @@ export function attachPointer(svg, userPath, callbacks) {
     }
 
     function onDown(event) {
-        if (event.button !== 0) {
+        if (event.button !== 0 || drawingPointerId !== null) {
             return;
         }
         const coords = toNodeCoords(event);
@@ -106,12 +108,12 @@ export function attachPointer(svg, userPath, callbacks) {
             callbacks.onSubmit();
             return;
         }
-        drawing = true;
+        drawingPointerId = event.pointerId;
         svg.setPointerCapture?.(event.pointerId);
     }
 
     function onMove(event) {
-        if (!drawing) {
+        if (event.pointerId !== drawingPointerId) {
             return;
         }
         const coords = toNodeCoords(event);
@@ -120,9 +122,9 @@ export function attachPointer(svg, userPath, callbacks) {
         }
     }
 
-    function onUp() {
-        if (drawing) {
-            drawing = false;
+    function onUp(event) {
+        if (event.pointerId === drawingPointerId) {
+            drawingPointerId = null;
             // 松手：幻影段缩回最近的已提交节点
             callbacks.onUpdate(null);
         }

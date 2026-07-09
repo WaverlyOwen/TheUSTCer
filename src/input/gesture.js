@@ -14,7 +14,10 @@ export function attachGestures(viewportController) {
 
     function onWheel(event) {
         event.preventDefault();
-        const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+        // 按滚动量缩放：触控板连发的小 delta 平滑累积；
+        // 滚轮一格（±100px 当量）≈ 旧的固定 ×1.12 手感
+        const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+        const factor = Math.exp(-Math.max(-400, Math.min(400, pixels)) * 0.0011);
         viewportController.zoomAt(event.clientX, event.clientY, factor);
     }
 
@@ -29,6 +32,11 @@ export function attachGestures(viewportController) {
     }
 
     function onPointerDown(event) {
+        // 只认鼠标主键：右键/中键不进 pointers 表，免得 contextmenu 吞掉
+        // pointerup 留下幽灵指针，把后续单键拖动误判成捏合
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
         pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
         if (pointers.size === 2) {
             pinchDistance = distance();
@@ -65,7 +73,12 @@ export function attachGestures(viewportController) {
 
     function onPointerEnd(event) {
         pointers.delete(event.pointerId);
-        if (pointers.size < 2) {
+        if (pointers.size === 2) {
+            // 3 指 → 2 指：以剩余两指重设基线，否则下一次 move 会拿旧基线
+            // 对比新指距/中点，缩放平移猛跳
+            pinchDistance = distance();
+            pinchMid = midpoint();
+        } else if (pointers.size < 2) {
             pinchDistance = 0;
             pinchMid = null;
         }

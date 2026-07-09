@@ -327,19 +327,23 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         };
 
         const detachKeyboard = attachKeyboard(answerActions);
-        const detachPointer = attachPointer(board.svg, path, {
-            onUpdate: (partial) => syncLine(partial),
-            onSubmit: () => {},
-            getSensitivity,
-        });
+        // 与主棋盘一致：手机走全屏滑动画线，桌面走指针拖动。
+        // 两套同时挂的话，一次触摸拖动会被两边各记一步（走两格）
+        let detachPointer = null;
         let swipe = null;
         if (isMobileDevice()) {
             swipe = createSwipeDetector(answerActions, getSensitivity);
             swipe.addEventListener();
+        } else {
+            detachPointer = attachPointer(board.svg, path, {
+                onUpdate: (partial) => syncLine(partial),
+                onSubmit: () => {},
+                getSensitivity,
+            });
         }
         detachAnswerInputs = () => {
             detachKeyboard();
-            detachPointer();
+            detachPointer?.();
             swipe?.removeEventListener();
         };
     }

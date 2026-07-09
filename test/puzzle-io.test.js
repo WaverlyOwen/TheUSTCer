@@ -157,3 +157,44 @@ test('readableTextColor 深底配白字、浅底配黑字', () => {
     assert.equal(readableTextColor('#f2f2f2'), '#1c1c1c');
     assert.equal(readableTextColor('not-a-color'), '#ffffff');
 });
+
+test('validateRecord 卡住越界的格子子编号与路名号', () => {
+    const base = () => ({ v: 1, w: 2, h: 2, sign: blankSign(2, 2), answer: null });
+    const withCell = (cell) => {
+        const record = base();
+        record.sign[0][0][2] = cell;
+        return record;
+    };
+    // 回归：此前子编号只查 Number.isFinite，[12,9]/[11,1.5]/[13,99] 都能过校验，
+    // 玩家一画完路径 checkSolution 就 TypeError
+    assert.equal(validateRecord(withCell([12, 1])), true);
+    assert.equal(validateRecord(withCell([12, 9])), false);
+    assert.equal(validateRecord(withCell([11, 1.5])), false);
+    assert.equal(validateRecord(withCell([13, 4])), true);
+    assert.equal(validateRecord(withCell([13, 99])), false);
+    assert.equal(validateRecord(withCell([7, 0])), true);
+    assert.equal(validateRecord(withCell([7, 5])), false);
+
+    const road = base();
+    road.sign[0][0][0] = [1, 99];
+    assert.equal(validateRecord(road), false);
+    const fractionalRoad = base();
+    fractionalRoad.sign[0][0][0] = [1, 1.5];
+    assert.equal(validateRecord(fractionalRoad), false);
+});
+
+test('答案重放带上阻断边：穿过阻断通道的答案按无答案处理', () => {
+    const record = {
+        v: 1,
+        w: 1,
+        h: 1,
+        sign: blankSign(1, 1),
+        answer: [0, 1, 0],
+        blockedEdges: [[0, 0, 0]],
+    };
+    assert.equal(validateRecord(record), true);
+    // 回归：此前 deserializePuzzle 用不带阻断边的 Path 重放，
+    // 这条穿过阻断口的答案会被当成有效答案展示
+    assert.equal(deserializePuzzle(record).answer, null);
+    assert.notEqual(deserializePuzzle({ ...record, blockedEdges: [] }).answer, null);
+});

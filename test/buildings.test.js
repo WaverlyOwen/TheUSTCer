@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
     BUILDING_MASKS,
     BUILDING_NAMES,
+    comboShapes,
     matchesBuilding,
     placementsByBuilding,
     compatiblePlacements,
@@ -78,5 +79,25 @@ test('教程全部棋盘示例的路径与判定自洽', () => {
         const result = checkSolution(sign, [w, h], path);
         assert.equal(result.ok, true, `${slide.caption.slice(0, 8)} 判定失败: ${JSON.stringify(result)}`);
     }
+    }
+});
+
+test('组合拼形整体归一化：无负坐标，parts 恰好铺满拼形', () => {
+    // 回归：此前 comboShapes 存原始并集（dx/dy 可到 -3），
+    // tryComboPlacement 按 0 基算 maxX/maxY 会把楼摆出棋盘
+    for (const indices of [[0, 1], [3, 4], [0, 3, 4]]) {
+        const { shapes } = comboShapes(indices);
+        assert.ok(shapes.length > 0);
+        for (const { cells, parts } of shapes) {
+            assert.equal(Math.min(...cells.map(([x]) => x)), 0);
+            assert.equal(Math.min(...cells.map(([, y]) => y)), 0);
+            assert.equal(parts.length, indices.length);
+            const cellKeys = new Set(cells.map(cell => cell.join(',')));
+            const partCells = parts.flat();
+            assert.equal(partCells.length, cells.length);
+            for (const cell of partCells) {
+                assert.ok(cellKeys.has(cell.join(',')), `part 格子 ${cell} 不在拼形内`);
+            }
+        }
     }
 });

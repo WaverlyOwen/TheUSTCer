@@ -903,25 +903,29 @@ function fillSigns(answer, size, t, buildings, settings) {
         }
     }
 
-    // 沿答案路径撒路名，一部分标黑（必须穿过）
+    // 沿答案路径撒路名，一部分标黑（必须穿过）。
+    // 判题/渲染只读 i<w、j<h 的路名位（外圈是占位行列）：底边横边、
+    // 右边竖边与出口伪边都落在圈外，写了也看不见、判不到，直接跳过
     let position = [0, 0];
     const roadSlots = [];
+    const placeRoad = (x, y, orient) => {
+        if (x >= size[0] || y >= size[1]) {
+            return;
+        }
+        roadSlots.push([x, y, orient]);
+        sign[x][y][orient] = [
+            Number(Math.random() < roadRate),
+            random(TYPE_SCALE[5 + orient]),
+        ];
+    };
     for (let i = 0; i < answer.distance; i++) {
         const now = answer.queue[i];
         if (now < 2) {
-            roadSlots.push([position[0], position[1], now]);
-            sign[position[0]][position[1]][now] = [
-                Number(Math.random() < roadRate),
-                random(TYPE_SCALE[5 + now]),
-            ];
+            placeRoad(position[0], position[1], now);
             position = movePoint(position, now, 1);
         } else {
             position = movePoint(position, now, 1);
-            roadSlots.push([position[0], position[1], now % 2]);
-            sign[position[0]][position[1]][now % 2] = [
-                Number(Math.random() < roadRate),
-                random(TYPE_SCALE[5 + now]),
-            ];
+            placeRoad(position[0], position[1], now % 2);
         }
     }
 

@@ -84,3 +84,24 @@ test('hard challenge generation keeps dense local coverage on medium boards', ()
         assert.ok(coverage >= 0.38);
     }
 });
+
+test('路名只落在判题可见的 w×h 区，隐形边界与出口伪边不再有黑路', () => {
+    // 回归：此前 fillSigns 沿答案路径把路名写到底边横边/右边竖边/出口伪边，
+    // 判题与渲染都读不到；"保底一条黑路"还可能恰好选中这些隐形槽位
+    for (let i = 0; i < 40; i++) {
+        const puzzle = generatePuzzle([8, 8], 80);
+        const [w, h] = puzzle.size;
+        let blackRoads = 0;
+        for (let x = 0; x <= w; x++) {
+            for (let y = 0; y <= h; y++) {
+                for (const orient of [0, 1]) {
+                    if (puzzle.sign[x][y][orient][0]) {
+                        assert.ok(x < w && y < h, `路名落在判题区外 (${x},${y},${orient})`);
+                        blackRoads++;
+                    }
+                }
+            }
+        }
+        assert.ok(blackRoads >= 1, '路名题型开启时至少要有一条可见黑路');
+    }
+});

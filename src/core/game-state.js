@@ -165,15 +165,18 @@ export function clearClassicPuzzleRecord() {
 export function loadClassicRun() {
     const level = load(CLASSIC_LEVEL_KEY, load(LEGACY_LEVEL_KEY, 0));
     const now = Date.now();
-    const startedAt = load(CLASSIC_STARTED_AT_KEY, now);
+    // 兜底值必须是 null 而不是 now：否则"键不存在"与"合法值"无法区分，
+    // 开局时间戳要等到第一次过关才落盘，期间刷新页面计时就归零了
+    const storedStartedAt = load(CLASSIC_STARTED_AT_KEY, null);
+    const startedAt = Number.isInteger(storedStartedAt) ? storedStartedAt : now;
     const finishedAt = load(CLASSIC_FINISHED_AT_KEY, null);
     const pausedMs = load(CLASSIC_PAUSED_MS_KEY, 0);
-    if (!Number.isInteger(startedAt)) {
-        save(CLASSIC_STARTED_AT_KEY, now);
+    if (startedAt !== storedStartedAt) {
+        save(CLASSIC_STARTED_AT_KEY, startedAt);
     }
     return {
         level: Number.isInteger(level) && level >= 0 ? level : 0,
-        startedAt: Number.isInteger(startedAt) ? startedAt : now,
+        startedAt,
         finishedAt: Number.isInteger(finishedAt) ? finishedAt : null,
         pausedMs: Number.isFinite(pausedMs) && pausedMs >= 0 ? pausedMs : 0,
     };
@@ -293,7 +296,7 @@ const ENDLESS_BEST_KEY = 'endlessBest';
 
 // 第 question 题（1 起）的棋盘尺寸；随机段的两维独立取 [8,16]
 export function endlessSizeForQuestion(question, randomInt = random) {
-    if (question < ENDLESS_RAMP_END) {
+    if (question <= ENDLESS_RAMP_END) {
         const side = ENDLESS_START_SIZE + Math.floor((question - 1) / ENDLESS_GROWTH_EVERY);
         return [side, side];
     }

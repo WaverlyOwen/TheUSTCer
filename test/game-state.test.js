@@ -5,6 +5,8 @@ import test from 'node:test';
 
 import {
         TIMED_START_LEVEL,
+    ENDLESS_RAMP_END,
+    endlessSizeForQuestion,
     challengeBuildingsSupported,
     challengeGenerationOptions,
     formatDuration,
@@ -122,4 +124,14 @@ test('timed mode starts from the 3x3 board tier', () => {
     assert.equal(run.level, TIMED_START_LEVEL);
     assert.deepEqual(sizeForLevel(run.level), [3, 3]);
     assert.equal(run.cleared, 0);
+});
+
+test('无尽爬坡在第 53 题到达 16×16 峰值，之后才进随机段', () => {
+    assert.deepEqual(endlessSizeForQuestion(1), [3, 3]);
+    assert.deepEqual(endlessSizeForQuestion(52), [15, 15]);
+    // 回归：此前 `<` 把峰值题排除在爬坡外，16×16 永远不出现
+    assert.deepEqual(endlessSizeForQuestion(ENDLESS_RAMP_END), [16, 16]);
+    // 随机段：两维独立取 [8, 16]
+    assert.deepEqual(endlessSizeForQuestion(ENDLESS_RAMP_END + 1, () => 0), [8, 8]);
+    assert.deepEqual(endlessSizeForQuestion(ENDLESS_RAMP_END + 1, (span) => span - 1), [16, 16]);
 });

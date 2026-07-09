@@ -67,7 +67,6 @@ export class BoardView {
             id: svgId,
             viewBox: `-30 -30 ${(w + 2) * 50} ${(h + 1) * 50}`,
         });
-        this.svg.classList.add('board');
         this.applyScale();
 
         this.svg.appendChild(svgElement('path', {
@@ -356,6 +355,8 @@ export class BoardView {
     }
 
     winEffect() {
+        // 失败闪烁还没播完就赢了（回拖修改后再进出口）：把残留的反色/闪红清掉
+        this.clearFailFeedback();
         this.userAnimator.snap();
         this.setPathFeedback('fail', false);
         this.setPathFeedback('win', true);

@@ -303,7 +303,7 @@ export function chapterLocked(chapter, state) {
             : `经典 GPA 达到 ${chapter.unlock.gpa.toFixed(2)} 后解锁`;
     }
     if (chapter.unlock.mode) {
-        const labels = { timed: '计时模式', challenge: '挑战模式' };
+        const labels = { timed: '计时模式', endless: '无尽模式', challenge: '挑战模式' };
         return state.unlocks?.[chapter.unlock.mode]
             ? null
             : `解锁${labels[chapter.unlock.mode] ?? chapter.unlock.mode}后开放`;

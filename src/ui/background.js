@@ -79,11 +79,15 @@ class ParticleNetwork {
 
     createParticles(isInitial) {
         this.particles = [];
+        // 重建粒子数组（窗口尺寸变化）时：停掉首次填充的定时器，否则旧
+        // interval 会继续往新数组里塞粒子把密度翻倍；交互粒子引用也一并丢掉，
+        // 否则它指向一个不在数组里的孤儿，鼠标跟随从此更新不到画面上
+        clearInterval(this.createIntervalId);
+        this.interactionParticle = undefined;
         const quantity = this.canvas.width * this.canvas.height / this.options.density;
 
         if (isInitial) {
             let counter = 0;
-            clearInterval(this.createIntervalId);
             this.createIntervalId = setInterval(() => {
                 if (counter < quantity - 1) {
                     this.particles.push(new Particle(this));
@@ -107,9 +111,11 @@ class ParticleNetwork {
     }
 
     removeInteractionParticle() {
+        // 引用无条件清掉：即使粒子已随 createParticles 重建而不在数组里，
+        // 也要让下一次 mousemove 能重新创建
         const index = this.particles.indexOf(this.interactionParticle);
+        this.interactionParticle = undefined;
         if (index > -1) {
-            this.interactionParticle = undefined;
             this.particles.splice(index, 1);
         }
     }
