@@ -120,5 +120,10 @@ x x x
   name, createdAt,
   origin: 'generated' | 'custom' | 'imported'
 }
-分享链接 = 页面地址 + '#p=' + base64url(JSON)
+分享链接 = 页面地址 + '#z=' + base64url(deflate(JSON))
+  deflate 为 zlib 格式（浏览器原生 CompressionStream('deflate')），编码前去掉 id 字段。
+  sign 矩阵几乎全零，压缩后 36×36 的题约 5 千字符（明文约 4.3 万），
+  避开部分剪贴板 / 微信对 2 万字符以上链接的截断。
+  旧版明文链接 '#p=' + base64url(JSON) 仍可解码；运行环境不支持 CompressionStream
+  时编码端也回退为 '#p='。
 

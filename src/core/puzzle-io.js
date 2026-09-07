@@ -258,9 +258,18 @@ export function deleteSavedPuzzle(id) {
 }
 
 // ===== 链接分享（数据编码进 URL hash）=====
+//
+// 两种前缀：
+//   #z= base64url(deflate(JSON))   压缩链接（默认）。sign 矩阵几乎全是 0，
+//       deflate 后 36×36 的题从约 4.3 万字符降到 5 千以内——部分浏览器剪贴板
+//       和微信会把超过 2 万字符的链接截断/拒发，这是压缩的直接动机。
+//   #p= base64url(JSON)            旧版明文链接。解码端继续认，已发出的链接不失效；
+//       运行环境缺 CompressionStream 时编码端也回退到它。
+// 压缩用浏览器原生 CompressionStream('deflate')（zlib 格式），不引入第三方库。
 
-function base64UrlEncode(text) {
-    const bytes = new TextEncoder().encode(text);
+const COMPRESSION_FORMAT = 'deflate';
+
+function base64UrlEncodeBytes(bytes) {
     let binary = '';
     for (const byte of bytes) {
         binary += String.fromCharCode(byte);
@@ -268,33 +277,54 @@ function base64UrlEncode(text) {
     return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
-function base64UrlDecode(encoded) {
+function base64UrlDecodeBytes(encoded) {
     const padded = encoded.replaceAll('-', '+').replaceAll('_', '/')
         .padEnd(Math.ceil(encoded.length / 4) * 4, '=');
     const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
+    return Uint8Array.from(binary, char => char.charCodeAt(0));
+}
+
+// 把字节流整体过一遍 Compression/DecompressionStream
+async function pipeBytes(bytes, transform) {
+    const stream = new Blob([bytes]).stream().pipeThrough(transform);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+export function shareCompressionSupported() {
+    return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
 }
 
 // 拆出纯函数部分（不碰 location），供测试编解码往返
-export function encodeShareHash(record) {
+export async function encodeShareHash(record) {
     const payload = { ...record };
     delete payload.id;
-    return `#p=${base64UrlEncode(JSON.stringify(payload))}`;
+    const json = new TextEncoder().encode(JSON.stringify(payload));
+    if (!shareCompressionSupported()) {
+        return `#p=${base64UrlEncodeBytes(json)}`;
+    }
+    const compressed = await pipeBytes(json, new CompressionStream(COMPRESSION_FORMAT));
+    return `#z=${base64UrlEncodeBytes(compressed)}`;
 }
 
-export function encodeShareUrl(record) {
+export async function encodeShareUrl(record) {
     const base = `${location.origin}${location.pathname}${location.search}`;
-    return `${base}${encodeShareHash(record)}`;
+    return `${base}${await encodeShareHash(record)}`;
 }
 
-export function decodeShareHash(hash = location.hash) {
-    const match = /#p=([A-Za-z0-9_-]+)/.exec(hash);
+export async function decodeShareHash(hash = location.hash) {
+    const match = /#([pz])=([A-Za-z0-9_-]+)/.exec(hash);
     if (!match) {
         return null;
     }
     try {
-        const record = JSON.parse(base64UrlDecode(match[1]));
+        let bytes = base64UrlDecodeBytes(match[2]);
+        if (match[1] === 'z') {
+            if (!shareCompressionSupported()) {
+                return null;
+            }
+            bytes = await pipeBytes(bytes, new DecompressionStream(COMPRESSION_FORMAT));
+        }
+        const record = JSON.parse(new TextDecoder().decode(bytes));
         return validateRecord(record) ? record : null;
     } catch {
         return null;
