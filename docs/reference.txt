@@ -127,3 +127,10 @@ x x x
   旧版明文链接 '#p=' + base64url(JSON) 仍可解码；运行环境不支持 CompressionStream
   时编码端也回退为 '#p='。
 
+
+求解器（core/solver.js，移植自 issue #1 的 TheUSTCer-solver）：
+  输入 { size, sign, palette?, blockedEdges? }，与生成器产物 / deserializePuzzle 同构
+  solvePuzzle(puzzle, {maxNodes, timeBudgetMs, seed}) → { status: 'solved'|'unsolvable'|'budget', moves, nodes }
+  ratePuzzle(puzzle, {...})   → 迭代加深求最短解，difficulty = lg(最短解层之前的剪枝树节点数)
+  analyzePuzzle(puzzle, {timeBudgetMs}) → 固定序 DFS → 随机重启 → 剩余时间评级（题目工坊「检查可解」）
+  自定义色格按 colorKeyOf 的实际颜色参与书院判定；教学楼判形复用 buildings.js

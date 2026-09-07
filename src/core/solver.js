@@ -1,0 +1,832 @@
+"use strict";
+
+import { BUILDING_MASKS, matchesBuilding, matchesCombo } from './buildings.js';
+import { colorKeyOf } from './puzzle-io.js';
+
+// 剪枝求解器：由 zhou-tian-xing/TheUSTCer-solver 的 C++ 实现（issue #1）移植为纯 JS，
+// 与 path.js / validator.js 共用一套编码：
+//   格 (x,y)：x∈[0,w) y∈[0,h)，格下标 C = x*h + y
+//   格点 V = x*(h+1) + y，边 E = 2V + axis（axis 0 横边 (x,y)-(x+1,y)，1 竖边 (x,y)-(x,y+1)）
+//   方向 0右 1下 2左 3上；从 (0,0) 出发走到出口角 (w,h)，再向右跨出棋盘（answer 末位 0）
+//
+// 四类剪枝全部只删"必然无解"的分支，DFS 保持完备：
+//   1) 强制边：黑路名边 ∪ 必须切开的边（相邻两格书院异色 / 同为红专理实中的同一标记）。
+//      端点挂着未覆盖强制边 ⇒ 下一步唯一；另一端已占用 ⇒ 死；挂两条 ⇒ 死。
+//   2) 出口可达：每步一次格点 BFS，出口角不可达即死；可达集同时是第 3 条的输入。
+//   3) 封闭区域：自避路径只在"端点从内部走到矩形边界"时围出新区域，此刻按
+//      validator.js 的规则验证该区域（区域一旦封闭永不改变），违规即死。
+//   4) 焊死组（glue）：端点离开某格点后，该点上未画的内部边永远画不成，两侧格子
+//      必然同区。用可回滚并查集维护每组的书院色 / 红专理实计数 / 楼标记，
+//      出现"同区必违规"的组合立刻剪。
+//
+// 相比 C++ 原版的差异：自定义色格（类型 20+）按 colorKeyOf 的实际颜色参与书院判定，
+// 与判题器一致；教学楼判形直接复用 buildings.js 的朝向表 / 组合表。
+
+const DX = [1, 0, -1, 0];
+const DY = [0, 1, 0, -1];
+const BUILDING_CELL_COUNTS = BUILDING_MASKS.map(mask =>
+    mask.reduce((count, row) => count + row.split('x').length - 1, 0));
+const DEADLINE_CHECK_MASK = 2047;
+
+function now() {
+    return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+class BudgetExceeded extends Error {}
+
+export class PuzzleSolver {
+    constructor(puzzle) {
+        const [w, h] = puzzle.size;
+        this.w = w;
+        this.h = h;
+        this.W = h + 1;
+        this.nv = (w + 1) * (h + 1);
+        this.nc = w * h;
+        const { nv, nc } = this;
+
+        // ---- 静态题面 ----
+        this.cellColor = new Int32Array(nc).fill(-1);   // 书院色编号（书院四色与自定义色统一按实际颜色编号）
+        this.cellMark = new Int8Array(nc).fill(-1);     // 0红 1专 2理 3实
+        this.cellBuilding = new Int8Array(nc).fill(-1); // 教学楼编号
+        this.blocked = new Uint8Array(2 * nv);
+        this.reqEdge = [];
+        this.reqVa = [];
+        this.reqVb = [];
+        this.reqCa = [];
+        this.reqCb = [];
+        this.reqByEdge = new Int32Array(2 * nv).fill(-1);
+        this.reqAtV = null;
+        this.cov = null;
+        this.uncovered = 0;
+
+        // ---- 邻接查表 ----
+        this.xOf = new Int32Array(nv);
+        this.yOf = new Int32Array(nv);
+        this.nxtV = new Int32Array(4 * nv).fill(-1);
+        this.nxtE = new Int32Array(4 * nv);
+        this.edgeCa = new Int32Array(2 * nv).fill(-1);   // 边两侧的格子（-1 = 该侧没有格）
+        this.edgeCb = new Int32Array(2 * nv).fill(-1);
+        for (let v = 0; v < nv; v++) {
+            const x = (v / this.W) | 0;
+            const y = v % this.W;
+            this.xOf[v] = x;
+            this.yOf[v] = y;
+            for (let d = 0; d < 4; d++) {
+                const nx = x + DX[d];
+                const ny = y + DY[d];
+                if (nx < 0 || nx > w || ny < 0 || ny > h) {
+                    continue;
+                }
+                this.nxtV[v * 4 + d] = nx * this.W + ny;
+                this.nxtE[v * 4 + d] = d === 0 ? v * 2
+                    : d === 1 ? v * 2 + 1
+                    : d === 2 ? (nx * this.W + y) * 2
+                    : (x * this.W + ny) * 2 + 1;
+            }
+            // 横边 (x,y)-(x+1,y)：上方格 (x,y-1)、下方格 (x,y)；竖边 (x,y)-(x,y+1)：左方格 (x-1,y)、右方格 (x,y)
+            if (x < w) {
+                this.edgeCa[v * 2] = y >= 1 ? this.cellId(x, y - 1) : -1;
+                this.edgeCb[v * 2] = y < h ? this.cellId(x, y) : -1;
+            }
+            if (y < h) {
+                this.edgeCa[v * 2 + 1] = x >= 1 ? this.cellId(x - 1, y) : -1;
+                this.edgeCb[v * 2 + 1] = x < w ? this.cellId(x, y) : -1;
+            }
+        }
+
+        // ---- 动态搜索状态 ----
+        this.occ = new Uint8Array(nv);
+        this.wall = new Uint8Array(2 * nv);
+        this.seal = new Int32Array(nc);
+        this.sealedCnt = 0;
+        this.sealLog = [];
+        this.moves = [];
+        this.solution = null;
+
+        // ---- 临时缓冲（自增戳，免清零）----
+        this.cellVis = new Int32Array(nc);
+        this.passStamp = 0;
+        this.compMark = new Int32Array(nc);
+        this.compSeq = 0;
+        this.compCells = [];
+        this.queue = new Int32Array(Math.max(nv, nc));
+        this.vertVis = new Int32Array(nv);
+        this.vertStamp = 0;
+        this.headId = 0;
+
+        // ---- 焊死组 ----
+        this.glPar = new Int32Array(nc).fill(-1);
+        this.glSize = new Int32Array(nc).fill(1);
+        this.glColor = new Int32Array(nc).fill(-1);
+        this.glMark = new Uint8Array(nc * 4);
+        this.glBld = new Uint8Array(nc);
+        this.glueLog = [];
+
+        // ---- 预算与统计 ----
+        this.nodes = 0;
+        this.nodeBudget = Infinity;
+        this.deadline = Infinity;
+        this.budgetHit = false;
+        this.randSeed = 0;
+        this.depthLimit = Infinity;
+        this.depthCut = false;
+
+        this.impossible = !this.build(puzzle);
+    }
+
+    cellId(x, y) {
+        return x * this.h + y;
+    }
+
+    edgeId(x, y, axis) {
+        return (x * this.W + y) * 2 + axis;
+    }
+
+    onFrame(x, y) {
+        return x === 0 || x === this.w || y === 0 || y === this.h;
+    }
+
+    addReq(e) {
+        if (this.reqByEdge[e] >= 0) {
+            return;
+        }
+        const v = e >> 1;
+        this.reqByEdge[e] = this.reqEdge.length;
+        this.reqEdge.push(e);
+        this.reqVa.push(v);
+        this.reqVb.push((e & 1) ? v + 1 : v + this.W);
+        this.reqCa.push(this.edgeCa[e]);
+        this.reqCb.push(this.edgeCb[e]);
+    }
+
+    build(puzzle) {
+        const { w, h, nv } = this;
+        const sign = puzzle.sign;
+        const palette = puzzle.palette ?? [];
+        const colorIds = new Map();
+        const roads = [];
+        for (let x = 0; x < w; x++) {
+            for (let y = 0; y < h; y++) {
+                const entry = sign[x][y];
+                const type = entry[2];
+                const c = this.cellId(x, y);
+                const colorKey = colorKeyOf(type, palette);
+                if (colorKey !== null) {
+                    if (!colorIds.has(colorKey)) {
+                        colorIds.set(colorKey, colorIds.size);
+                    }
+                    this.cellColor[c] = colorIds.get(colorKey);
+                } else if (type[0] === 11 || type[0] === 12) {
+                    this.cellMark[c] = (type[0] - 11) * 2 + type[1];
+                } else if (type[0] === 13) {
+                    this.cellBuilding[c] = type[1];
+                }
+                if (entry[0][0]) {
+                    roads.push(this.edgeId(x, y, 0));
+                }
+                if (entry[1][0]) {
+                    roads.push(this.edgeId(x, y, 1));
+                }
+            }
+        }
+        for (const [ex, ey, axis] of puzzle.blockedEdges ?? []) {
+            const e = this.edgeId(ex, ey, axis);
+            if (e < 0 || e >= 2 * nv) {
+                return false;
+            }
+            this.blocked[e] = 1;
+        }
+        for (const e of roads) {
+            this.addReq(e);
+        }
+        // 必须切开的内部格边：书院异色 / 同标记
+        const mustCut = (a, b) =>
+            (this.cellColor[a] >= 0 && this.cellColor[b] >= 0 && this.cellColor[a] !== this.cellColor[b]) ||
+            (this.cellMark[a] >= 0 && this.cellMark[a] === this.cellMark[b]);
+        for (let x = 0; x < w; x++) {
+            for (let y = 1; y < h; y++) {
+                if (mustCut(this.cellId(x, y - 1), this.cellId(x, y))) {
+                    this.addReq(this.edgeId(x, y, 0));
+                }
+            }
+        }
+        for (let x = 1; x < w; x++) {
+            for (let y = 0; y < h; y++) {
+                if (mustCut(this.cellId(x - 1, y), this.cellId(x, y))) {
+                    this.addReq(this.edgeId(x, y, 1));
+                }
+            }
+        }
+        for (const e of this.reqEdge) {
+            if (this.blocked[e]) {
+                return false;   // 强制边落在阻断边上：必无解
+            }
+        }
+        if (!this.glueInit()) {
+            return false;
+        }
+        const reqAtV = Array.from({ length: nv }, () => []);
+        for (let i = 0; i < this.reqEdge.length; i++) {
+            reqAtV[this.reqVa[i]].push(i);
+            reqAtV[this.reqVb[i]].push(i);
+        }
+        this.reqAtV = reqAtV;
+        this.cov = new Uint8Array(this.reqEdge.length);
+        this.uncovered = this.reqEdge.length;
+        return true;
+    }
+
+    // ===== 焊死组：union by size、无路径压缩，按步深回滚 =====
+
+    glueFind(a) {
+        while (this.glPar[a] >= 0) {
+            a = this.glPar[a];
+        }
+        return a;
+    }
+
+    glueUnion(a, b) {
+        let ra = this.glueFind(a);
+        let rb = this.glueFind(b);
+        if (ra === rb) {
+            return true;
+        }
+        if (this.glSize[ra] < this.glSize[rb]) {
+            [ra, rb] = [rb, ra];
+        }
+        if (this.glBld[ra] & this.glBld[rb]) {
+            return false;   // 同一栋楼标记两次
+        }
+        const colorA = this.glColor[ra];
+        const colorB = this.glColor[rb];
+        if (colorA >= 0 && colorB >= 0 && colorA !== colorB) {
+            return false;   // 两种书院色
+        }
+        const marks = [0, 0, 0, 0];
+        for (let i = 0; i < 4; i++) {
+            marks[i] = this.glMark[ra * 4 + i] + this.glMark[rb * 4 + i];
+            if (marks[i] > 1) {
+                return false;   // 同标记两次
+            }
+        }
+        this.glueLog.push({
+            mvIdx: this.moves.length,
+            child: rb,
+            root: ra,
+            oldSize: this.glSize[ra],
+            oldColor: colorA,
+            oldMarks: [
+                this.glMark[ra * 4], this.glMark[ra * 4 + 1],
+                this.glMark[ra * 4 + 2], this.glMark[ra * 4 + 3],
+            ],
+            oldBld: this.glBld[ra],
+        });
+        this.glPar[rb] = ra;
+        this.glSize[ra] += this.glSize[rb];
+        this.glColor[ra] = colorA >= 0 ? colorA : colorB;
+        for (let i = 0; i < 4; i++) {
+            this.glMark[ra * 4 + i] = marks[i];
+        }
+        this.glBld[ra] |= this.glBld[rb];
+        return true;
+    }
+
+    // 格点 v 处所有"已死"的内部边（非墙、非阻断、非刚画的 skipE）两侧焊合
+    glueFuseAt(v, skipE) {
+        for (let d = 0; d < 4; d++) {
+            if (this.nxtV[v * 4 + d] < 0) {
+                continue;
+            }
+            const e = this.nxtE[v * 4 + d];
+            if (e === skipE || this.wall[e] || this.blocked[e]) {
+                continue;
+            }
+            const ca = this.edgeCa[e];
+            const cb = this.edgeCb[e];
+            if (ca >= 0 && cb >= 0 && !this.glueUnion(ca, cb)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    glueInit() {
+        for (let c = 0; c < this.nc; c++) {
+            this.glColor[c] = this.cellColor[c];
+            if (this.cellMark[c] >= 0) {
+                this.glMark[c * 4 + this.cellMark[c]] = 1;
+            }
+            const building = this.cellBuilding[c];
+            if (building >= 0 && building < BUILDING_MASKS.length) {
+                this.glBld[c] = 1 << building;
+            }
+        }
+        for (let e = 0; e < 2 * this.nv; e++) {
+            if (!this.blocked[e]) {
+                continue;
+            }
+            const ca = this.edgeCa[e];
+            const cb = this.edgeCb[e];
+            if (ca >= 0 && cb >= 0 && !this.glueUnion(ca, cb)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // ===== 封闭区域验证（validator.js 语义，按便宜 → 昂贵排序）=====
+
+    regionSatisfied(comp, tag) {
+        let color = -1;
+        const pairCnt = [0, 0, 0, 0];
+        const buildings = [];
+        for (const c of comp) {
+            const cellColor = this.cellColor[c];
+            if (cellColor >= 0) {
+                if (color === -1) {
+                    color = cellColor;
+                } else if (color !== cellColor) {
+                    return false;
+                }
+            } else if (this.cellMark[c] >= 0) {
+                pairCnt[this.cellMark[c]]++;
+            } else if (this.cellBuilding[c] >= 0) {
+                buildings.push(this.cellBuilding[c]);
+            }
+        }
+        let buildingIdxs = null;
+        if (buildings.length) {
+            buildingIdxs = [...buildings].sort((a, b) => a - b);
+            let need = 0;
+            for (let i = 0; i < buildingIdxs.length; i++) {
+                if (i > 0 && buildingIdxs[i] === buildingIdxs[i - 1]) {
+                    return false;   // 同一栋楼出现两次
+                }
+                need += BUILDING_CELL_COUNTS[buildingIdxs[i]] ?? Infinity;
+            }
+            if (comp.length !== need) {
+                return false;   // 格数对不上，形状必不可能对
+            }
+        }
+        for (let g = 0; g < 2; g++) {
+            const a = pairCnt[g * 2];
+            const b = pairCnt[g * 2 + 1];
+            if (a > 1 || b > 1 || (a > 0) !== (b > 0)) {
+                return false;
+            }
+        }
+        // 区域内未覆盖的强制边：两侧都在区域内 ⇒ 永远画不上
+        for (let i = 0; i < this.reqEdge.length; i++) {
+            if (this.cov[i]) {
+                continue;
+            }
+            const ca = this.reqCa[i];
+            const cb = this.reqCb[i];
+            if (ca >= 0 && cb >= 0 && this.compMark[ca] === tag && this.compMark[cb] === tag) {
+                return false;
+            }
+        }
+        if (buildingIdxs) {
+            const cells = comp.map(c => [(c / this.h) | 0, c % this.h]);
+            return buildingIdxs.length === 1
+                ? matchesBuilding(cells, buildingIdxs[0])
+                : matchesCombo(cells, buildingIdxs);
+        }
+        return true;
+    }
+
+    // 对每个尚未密封的连通分量调用 visit(comp, tag)，返回 false 即终止
+    eachUnsealed(visit) {
+        this.passStamp++;
+        for (let seed = 0; seed < this.nc; seed++) {
+            if (this.seal[seed] !== 0 || this.cellVis[seed] === this.passStamp) {
+                continue;
+            }
+            const tag = ++this.compSeq;
+            this.floodFrom(seed, tag);
+            if (!visit(this.compCells, tag)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    floodFrom(seed, tag) {
+        const { h, w, queue } = this;
+        const comp = this.compCells;
+        comp.length = 0;
+        let read = 0;
+        let write = 0;
+        queue[write++] = seed;
+        this.cellVis[seed] = this.passStamp;
+        this.compMark[seed] = tag;
+        comp.push(seed);
+        while (read < write) {
+            const c = queue[read++];
+            const x = (c / h) | 0;
+            const y = c % h;
+            // 上/下邻居隔着横边，左/右邻居隔着竖边
+            if (y > 0 && !this.wall[this.edgeId(x, y, 0)]) {
+                this.floodPush(c - 1, tag, queue, write) && write++;
+            }
+            if (y + 1 < h && !this.wall[this.edgeId(x, y + 1, 0)]) {
+                this.floodPush(c + 1, tag, queue, write) && write++;
+            }
+            if (x > 0 && !this.wall[this.edgeId(x, y, 1)]) {
+                this.floodPush(c - h, tag, queue, write) && write++;
+            }
+            if (x + 1 < w && !this.wall[this.edgeId(x + 1, y, 1)]) {
+                this.floodPush(c + h, tag, queue, write) && write++;
+            }
+        }
+    }
+
+    floodPush(c, tag, queue, write) {
+        if (this.cellVis[c] === this.passStamp) {
+            return false;
+        }
+        this.cellVis[c] = this.passStamp;
+        this.compMark[c] = tag;
+        this.compCells.push(c);
+        queue[write] = c;
+        return true;
+    }
+
+    // 分量是否已定型：不存在仍可能被画出的内部格边
+    compIsFinal(tag) {
+        const { h, w } = this;
+        for (const c of this.compCells) {
+            const x = (c / h) | 0;
+            const y = c % h;
+            if (y > 0 && this.compMark[c - 1] === tag && this.edgeDrawable(this.edgeId(x, y, 0))) {
+                return false;
+            }
+            if (y + 1 < h && this.compMark[c + 1] === tag && this.edgeDrawable(this.edgeId(x, y + 1, 0))) {
+                return false;
+            }
+            if (x > 0 && this.compMark[c - h] === tag && this.edgeDrawable(this.edgeId(x, y, 1))) {
+                return false;
+            }
+            if (x + 1 < w && this.compMark[c + h] === tag && this.edgeDrawable(this.edgeId(x + 1, y, 1))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 边此刻起是否还可能成为墙：一端在可达集∪端点、另一端未占用
+    edgeDrawable(e) {
+        if (this.blocked[e]) {
+            return false;
+        }
+        const a = e >> 1;
+        const b = (e & 1) ? a + 1 : a + this.W;
+        const reachable = (u) => this.vertVis[u] === this.vertStamp || u === this.headId;
+        return (reachable(a) && !this.occ[b]) || (reachable(b) && !this.occ[a]);
+    }
+
+    closureScan() {
+        return this.eachUnsealed((comp, tag) => {
+            if (!this.compIsFinal(tag)) {
+                return true;
+            }
+            if (!this.regionSatisfied(comp, tag)) {
+                return false;
+            }
+            ++this.sealedCnt;
+            this.sealLog.push({ depth: this.moves.length, cells: [...comp] });
+            for (const c of comp) {
+                this.seal[c] = this.sealedCnt;
+            }
+            return true;
+        });
+    }
+
+    // 从端点 BFS 可达的未占用格点；返回出口角是否可达
+    bfsReach(headV) {
+        const { queue } = this;
+        this.vertStamp++;
+        this.headId = headV;
+        let read = 0;
+        let write = 0;
+        queue[write++] = headV;
+        this.vertVis[headV] = this.vertStamp;
+        while (read < write) {
+            const v = queue[read++];
+            for (let d = 0; d < 4; d++) {
+                const t = this.nxtV[v * 4 + d];
+                if (t < 0 || this.blocked[this.nxtE[v * 4 + d]] || this.occ[t] ||
+                    this.vertVis[t] === this.vertStamp) {
+                    continue;
+                }
+                this.vertVis[t] = this.vertStamp;
+                queue[write++] = t;
+            }
+        }
+        return this.vertVis[this.nv - 1] === this.vertStamp;
+    }
+
+    finish() {
+        if (this.uncovered !== 0) {
+            return false;
+        }
+        return this.eachUnsealed((comp, tag) => this.regionSatisfied(comp, tag));
+    }
+
+    applyMove(d, headV, nextV, e) {
+        this.occ[nextV] = 1;
+        this.wall[e] = 1;
+        const r0 = this.reqByEdge[e];
+        if (r0 >= 0 && !this.cov[r0]) {
+            this.cov[r0] = 1;
+            this.uncovered--;
+        }
+        this.moves.push(d);
+        for (const r of this.reqAtV[nextV]) {
+            if (this.cov[r]) {
+                continue;
+            }
+            const other = this.reqVa[r] === nextV ? this.reqVb[r] : this.reqVa[r];
+            if (this.occ[other]) {
+                this.undoMove(nextV, e);
+                return false;
+            }
+        }
+        if (!this.glueFuseAt(headV, e)) {
+            this.undoMove(nextV, e);
+            return false;
+        }
+        return true;
+    }
+
+    undoMove(nextV, e) {
+        this.occ[nextV] = 0;
+        this.wall[e] = 0;
+        const r = this.reqByEdge[e];
+        if (r >= 0 && this.cov[r]) {
+            this.cov[r] = 0;
+            this.uncovered++;
+        }
+        this.moves.pop();
+        const depth = this.moves.length + 1;
+        while (this.sealLog.length && this.sealLog[this.sealLog.length - 1].depth === depth) {
+            for (const c of this.sealLog.pop().cells) {
+                this.seal[c] = 0;
+            }
+        }
+        while (this.glueLog.length && this.glueLog[this.glueLog.length - 1].mvIdx === depth) {
+            const g = this.glueLog.pop();
+            this.glPar[g.child] = -1;
+            this.glSize[g.root] = g.oldSize;
+            this.glColor[g.root] = g.oldColor;
+            for (let i = 0; i < 4; i++) {
+                this.glMark[g.root * 4 + i] = g.oldMarks[i];
+            }
+            this.glBld[g.root] = g.oldBld;
+        }
+    }
+
+    nextRandom() {
+        let r = this.randSeed >>> 0;
+        r ^= r << 13;
+        r >>>= 0;
+        r ^= r >>> 17;
+        r ^= r << 5;
+        r >>>= 0;
+        this.randSeed = r || 1;
+        return r;
+    }
+
+    explore(headV) {
+        if (this.moves.length >= this.depthLimit) {
+            this.depthCut = true;
+            return false;
+        }
+        if (this.nodes >= this.nodeBudget ||
+            ((this.nodes & DEADLINE_CHECK_MASK) === 0 && now() > this.deadline)) {
+            throw new BudgetExceeded();
+        }
+        this.nodes++;
+        const x = this.xOf[headV];
+        const y = this.yOf[headV];
+
+        // 剪枝 1：端点处的强制边
+        let forced = -1;
+        for (const r of this.reqAtV[headV]) {
+            if (this.cov[r]) {
+                continue;
+            }
+            const other = this.reqVa[r] === headV ? this.reqVb[r] : this.reqVa[r];
+            if (this.occ[other]) {
+                return false;
+            }
+            if (forced === -1) {
+                forced = other;
+            } else if (forced !== other) {
+                return false;
+            }
+        }
+        let dirs;
+        if (forced >= 0) {
+            const fx = this.xOf[forced];
+            const fy = this.yOf[forced];
+            dirs = [fx === x + 1 ? 0 : fx === x - 1 ? 2 : fy === y + 1 ? 1 : 3];
+        } else if (this.randSeed) {
+            dirs = [0, 1, 2, 3];
+            for (let i = 3; i > 0; i--) {
+                const j = this.nextRandom() % (i + 1);
+                [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+            }
+        } else {
+            dirs = [0, 1, 2, 3];
+        }
+
+        for (const d of dirs) {
+            const nextV = this.nxtV[headV * 4 + d];
+            if (nextV < 0) {
+                continue;
+            }
+            const e = this.nxtE[headV * 4 + d];
+            if (this.blocked[e] || this.occ[nextV]) {
+                continue;
+            }
+            if (!this.applyMove(d, headV, nextV, e)) {
+                continue;
+            }
+            if (nextV === this.nv - 1) {
+                // 出口角：格点不可重访，只能立刻出口
+                const ok = this.finish();
+                if (ok) {
+                    this.solution = [...this.moves, 0];
+                }
+                this.undoMove(nextV, e);
+                if (ok) {
+                    return true;
+                }
+                continue;
+            }
+            // 迭代加深：超过深度限制的孩子不再展开（也省掉下面两次扫描）
+            if (this.moves.length >= this.depthLimit) {
+                this.depthCut = true;
+                this.undoMove(nextV, e);
+                continue;
+            }
+            // 剪枝 2：出口可达
+            if (!this.bfsReach(nextV)) {
+                this.undoMove(nextV, e);
+                continue;
+            }
+            // 剪枝 3：端点从内部到达边界时围出新区域
+            let good = true;
+            if (this.onFrame(this.xOf[nextV], this.yOf[nextV]) && !this.onFrame(x, y)) {
+                good = this.closureScan();
+            }
+            let found = false;
+            try {
+                found = good && this.explore(nextV);
+            } finally {
+                this.undoMove(nextV, e);
+            }
+            if (found) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 一次搜索：返回 'solved' | 'unsolvable' | 'budget'
+    run({ maxNodes = Infinity, deadline = Infinity, seed = 0, depthLimit = Infinity } = {}) {
+        this.nodeBudget = maxNodes;
+        this.deadline = deadline;
+        this.randSeed = seed >>> 0;
+        this.depthLimit = depthLimit;
+        this.depthCut = false;
+        this.budgetHit = false;
+        this.solution = null;
+        this.moves.length = 0;
+        this.nodes = 0;
+        if (this.impossible) {
+            return 'unsolvable';
+        }
+        this.occ.fill(0);
+        this.occ[0] = 1;
+        let found = false;
+        try {
+            found = this.explore(0);
+        } catch (error) {
+            if (!(error instanceof BudgetExceeded)) {
+                throw error;
+            }
+            this.budgetHit = true;
+        }
+        // 无论正常结束还是中途抛出预算异常，undoMove 都已通过 finally 回滚到根状态
+        if (found) {
+            return 'solved';
+        }
+        return this.budgetHit ? 'budget' : 'unsolvable';
+    }
+}
+
+function normalizeOptions({ maxNodes = Infinity, timeBudgetMs = Infinity, seed = 0 } = {}) {
+    return {
+        maxNodes,
+        deadline: Number.isFinite(timeBudgetMs) ? now() + timeBudgetMs : Infinity,
+        seed,
+    };
+}
+
+// DFS 求任意一解。puzzle: { size, sign, palette?, blockedEdges? }（生成器产物 / deserializePuzzle 同构）
+export function solvePuzzle(puzzle, options = {}) {
+    const solver = new PuzzleSolver(puzzle);
+    const status = solver.run(normalizeOptions(options));
+    return { status, moves: solver.solution, nodes: solver.nodes };
+}
+
+// 迭代加深求最短解并评级。难度分 = lg(搜到最短解那一层之前的剪枝树节点数)，
+// 与 issue #1 里 hardness.py 用 BFS 展开数取对数的口径一致：
+// 深度限制 L 的 DFS 恰好枚举深度 < L 的全部剪枝树节点，与展开顺序无关。
+export function ratePuzzle(puzzle, options = {}) {
+    const solver = new PuzzleSolver(puzzle);
+    const { maxNodes, deadline } = normalizeOptions(options);
+    if (solver.impossible) {
+        return { status: 'unsolvable', moves: null, nodes: 0, difficulty: null };
+    }
+    let spent = 0;
+    let lastCompleted = 0;   // 上一轮（完整枚举到深度限制）的节点数
+    for (let limit = solver.w + solver.h; limit <= solver.nv; limit++) {
+        const status = solver.run({ maxNodes: maxNodes - spent, deadline, depthLimit: limit });
+        spent += solver.nodes;
+        if (status === 'solved') {
+            return {
+                status,
+                moves: solver.solution,
+                nodes: solver.nodes,
+                difficulty: Math.log10(Math.max(1, solver.nodes)),
+            };
+        }
+        if (status === 'budget') {
+            // 每轮节点数随深度限制单调不减，故两者都是最终一轮节点数的下界
+            const bound = Math.max(lastCompleted, solver.nodes);
+            return { status, moves: null, nodes: spent, difficulty: Math.log10(Math.max(1, bound)) };
+        }
+        if (!solver.depthCut) {
+            return { status: 'unsolvable', moves: null, nodes: solver.nodes, difficulty: null };
+        }
+        lastCompleted = solver.nodes;
+    }
+    return { status: 'unsolvable', moves: null, nodes: spent, difficulty: null };
+}
+
+export const DIFFICULTY_TIERS = [
+    [2, '入门'],
+    [3, '简单'],
+    [4, '中等'],
+    [5, '困难'],
+    [Infinity, '极难'],
+];
+
+export function difficultyLabel(difficulty) {
+    if (difficulty === null || difficulty === undefined || Number.isNaN(difficulty)) {
+        return '未知';
+    }
+    return DIFFICULTY_TIERS.find(([upper]) => difficulty < upper)[1];
+}
+
+// 题目工坊用的完整流程：固定序 DFS → 超预算则随机重启（稀疏大题常常头几次就中）
+// → 有解则用剩余时间评级。可解性优先：整段时限都可用于求解，评级只花剩下的。
+// 返回 { status, moves, nodes, difficulty, difficultyIsBound, shortest }
+export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, firstAttemptNodes = 2_000_000, restartNodes = 250_000 } = {}) {
+    const deadline = now() + timeBudgetMs;
+    const solver = new PuzzleSolver(puzzle);
+    let status = solver.run({ maxNodes: firstAttemptNodes, deadline });
+    let nodes = solver.nodes;
+    let moves = solver.solution;
+    let seed = 1;
+    while (status === 'budget' && now() < deadline) {
+        status = solver.run({ maxNodes: restartNodes, deadline, seed: seed++ });
+        nodes += solver.nodes;
+        moves = solver.solution;
+    }
+    if (status !== 'solved') {
+        return { status, moves: null, nodes, difficulty: null, difficultyIsBound: false, shortest: false };
+    }
+    const rating = ratePuzzle(puzzle, { timeBudgetMs: Math.max(50, deadline - now()) });
+    if (rating.status === 'solved') {
+        return {
+            status,
+            moves: rating.moves,
+            nodes: nodes + rating.nodes,
+            difficulty: rating.difficulty,
+            difficultyIsBound: false,
+            shortest: true,
+        };
+    }
+    return {
+        status,
+        moves,
+        nodes: nodes + rating.nodes,
+        difficulty: rating.difficulty,
+        difficultyIsBound: true,
+        shortest: false,
+    };
+}

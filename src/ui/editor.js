@@ -15,7 +15,9 @@ import {
 import { attachKeyboard } from '../input/keyboard.js';
 import { attachPointer } from '../input/pointer.js';
 import { createSwipeDetector, isMobileDevice } from '../input/touch.js';
+import { difficultyLabel } from '../core/solver.js';
 import { escapeHtml } from '../lib/html.js';
+import { analyzePuzzleAsync } from '../lib/solver-client.js';
 import { getThemeColors, random } from '../lib/random.js';
 import { getSensitivity } from '../lib/settings.js';
 import { isDark, onThemeChange } from '../lib/theme.js';
@@ -23,6 +25,8 @@ import { BoardView, fitSvgToBox } from '../render/board.js';
 import { CLOSE_ICON } from './icons.js';
 
 const FORMAT_VERSION = 1;
+// 「检查可解」的求解时限：Worker 内 DFS + 随机重启 + 评级共用
+const SOLVER_BUDGET_MS = 6000;
 
 // 书院四色类型码（7-10）；自定义色走 20+palette 下标。
 // 颜色与书院对应：橙=光启·仲英（少年班），蓝=冲之（数学/工程/管理），
@@ -43,8 +47,9 @@ function cloneSign(sign) {
     return sign.map(column => column.map(entry => entry.map(part => [...part])));
 }
 
-// 题目编辑器：全屏覆盖层。点格子改类型/字/邻边路名，「画答案」复用 Path 输入，
-// 不判定可解性（无答案题永远 WA，符合设定）。
+// 题目编辑器：全屏覆盖层。点格子改类型/字/邻边路名，「画答案」复用 Path 输入。
+// 「检查可解」用求解器（core/solver.js，Worker 内限时运行）判定题面是否有解并评级，
+// 没画答案时会把求得的最短解填进答案；不检查也能保存（无答案题永远 WA，符合设定）。
 export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) {
     // ===== 编辑状态 =====
     let w = record?.w ?? 6;
@@ -64,6 +69,8 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
     let cellDialog = null;
     // 线色按当前主题取一次，切主题时再换（避免每次编辑重建都随机换色）
     let themeColors = getThemeColors(isDark());
+    let solverBusy = false;
+    let solverText = null;       // 最近一次求解结论；题面/答案一变就作废
 
     const root = document.createElement('div');
     root.id = 'editor-root';
@@ -166,6 +173,7 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
                 <div class="editor-board" data-role="board"></div>
                 <footer class="editor-actions">
                     <button type="button" class="mode-secondary" data-action="clear-answer" hidden>清除答案</button>
+                    <button type="button" class="mode-secondary" data-action="solve">检查可解</button>
                     <button type="button" class="mode-secondary" data-action="share">复制分享链接</button>
                     <button type="button" class="mode-secondary" data-action="play">试玩</button>
                     <button type="button" class="mode-primary" data-action="save">保存到工坊</button>
@@ -182,8 +190,12 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         root.querySelector('[data-action="clear-answer"]').addEventListener('click', () => {
             path?.clear();
             answerDraft = [];
+            solverText = null;
             board?.updateUserLine([]);
             updateHint();
+        });
+        root.querySelector('[data-action="solve"]').addEventListener('click', () => {
+            void runSolver();
         });
         root.querySelector('[data-action="save"]').addEventListener('click', () => {
             const saved = onSave?.(buildRecord());
@@ -256,6 +268,56 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         openCellDialog(i, j);
     }
 
+    // ===== 检查可解 =====
+
+    function setSolveBusy(busy) {
+        solverBusy = busy;
+        const button = root.querySelector('[data-action="solve"]');
+        if (button) {
+            button.disabled = busy;
+            button.textContent = busy ? '求解中…' : '检查可解';
+        }
+    }
+
+    async function runSolver() {
+        if (solverBusy || !sign) {
+            return;
+        }
+        setSolveBusy(true);
+        solverText = '求解中，最多等待几秒…';
+        updateHint();
+        try {
+            const result = await analyzePuzzleAsync(currentPuzzle(), { timeBudgetMs: SOLVER_BUDGET_MS });
+            if (result.status === 'solved') {
+                const parts = [`有解 · ${result.shortest ? '最短' : '找到'} ${result.moves.length} 步`];
+                if (result.difficulty !== null) {
+                    parts.push(`难度 ${result.difficultyIsBound ? '≥ ' : ''}${result.difficulty.toFixed(1)}（${difficultyLabel(result.difficulty)}）`);
+                }
+                // 没画完整答案时把求得的解填进去，保存即带答案；画过的保留创作者自己的
+                if (!replayedPath().finished) {
+                    answerDraft = [...result.moves];
+                    parts.push('已填入答案');
+                    if (mode === 'answer') {
+                        rebuildBoard();
+                    } else {
+                        board?.updateUserLine(answerDraft);
+                        board?.userAnimator?.snap?.();
+                    }
+                }
+                solverText = parts.join(' · ');
+            } else if (result.status === 'unsolvable') {
+                solverText = '无解：当前题面不存在合法路径，请检查规则冲突';
+            } else {
+                solverText = `${SOLVER_BUDGET_MS / 1000} 秒内没找到解，题目可能过难或无解`;
+            }
+        } catch (error) {
+            solverText = `求解失败：${error?.message ?? error}`;
+        } finally {
+            setSolveBusy(false);
+            updateHint();
+        }
+    }
+
     // ===== 画答案模式 =====
 
     function setMode(nextMode) {
@@ -279,6 +341,10 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         if (!hint) {
             return;
         }
+        if (solverText) {
+            hint.textContent = solverText;
+            return;
+        }
         if (mode === 'answer') {
             if (path?.finished) {
                 hint.textContent = '已画到出口，保存时会附带这份答案';
@@ -300,6 +366,7 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         const syncLine = (partial = null) => {
             board.updateUserLine(path.queue, partial);
             answerDraft = [...path.queue];
+            solverText = null;
             updateHint();
         };
         const answerActions = {
@@ -530,6 +597,7 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
                 button.addEventListener('click', closeDialog));
             cellDialog.querySelector('[data-action="dialog-apply"]').addEventListener('click', () => {
                 sign[i][j][2] = pendingType;
+                solverText = null;
                 for (const edge of pendingEdges) {
                     if (edge.available) {
                         sign[edge.x][edge.y][edge.orient] = [edge.on ? 1 : 0, edge.idx];

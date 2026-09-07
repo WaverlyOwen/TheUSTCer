@@ -62,6 +62,7 @@ import {
     serializePuzzle,
 } from './core/puzzle-io.js';
 import { copyText } from './lib/clipboard.js';
+import { analyzePuzzleAsync } from './lib/solver-client.js';
 import { setupToolbar } from './ui/toolbar.js';
 import { openEditor } from './ui/editor.js';
 import { showToast } from './ui/toast.js';
@@ -955,6 +956,46 @@ async function startGame() {
         }, WIN_TRANSITION_MS);
     }
 
+    // 无参考答案的自定义题按 💡 时的求解流程：解出来就挂回 puzzle.answer 走正常展示；
+    // 中途换题则丢弃结果
+    const HINT_SOLVER_BUDGET_MS = 5000;
+    let solvingHint = false;
+    async function solveForHint() {
+        if (solvingHint) {
+            return;
+        }
+        solvingHint = true;
+        const target = puzzle;
+        showToast('No Answer — 正在求解…', { duration: 1500 });
+        try {
+            const result = await analyzePuzzleAsync(target, { timeBudgetMs: HINT_SOLVER_BUDGET_MS });
+            if (target !== puzzle) {
+                return;
+            }
+            if (result.status !== 'solved') {
+                showToast(result.status === 'unsolvable'
+                    ? '求解器判定：这道题无解'
+                    : '限时内没找到解，题目可能过难或无解');
+                return;
+            }
+            const answer = new Path(puzzle.size, blockedEdgeSet(puzzle.blockedEdges, puzzle.size[1]));
+            for (const move of result.moves) {
+                if (!answer.step(move)) {
+                    break;
+                }
+            }
+            if (!answer.finished) {
+                return;
+            }
+            puzzle.answer = answer;
+            actions.showAnswer();
+        } catch (error) {
+            showToast(`求解失败：${error?.message ?? error}`);
+        } finally {
+            solvingHint = false;
+        }
+    }
+
     const actions = {
         move(direction) {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
@@ -1041,9 +1082,9 @@ async function startGame() {
             if (blockForExpiredTimer() || isInteractionBlocked()) {
                 return;
             }
-            // 自定义题不保证可解：没有存答案就明确告知，不扣关
+            // 自定义题不保证可解：没有存答案就现场求解（Worker 内限时），找到再展示
             if (!puzzle.answer) {
-                showToast('No Answer — 这道题没有附带答案');
+                void solveForHint();
                 return;
             }
             board.showAnswer();
