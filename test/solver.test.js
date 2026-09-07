@@ -131,6 +131,7 @@ test('落单的红 / 阻断边上的路名 / 相邻异色被阻断 → 无解', 
     const lone = { size: [3, 3], sign: blankSign(3, 3), palette: [], blockedEdges: [] };
     lone.sign[1][1][2] = [11, 0];
     assert.equal(solvePuzzle(lone).status, 'unsolvable');
+    assert.equal(solvePuzzle(lone).nodes, 0);   // 静态失衡：build 即判无解，不进入搜索
 
     const roadOnBlocked = { size: [3, 3], sign: blankSign(3, 3), palette: [], blockedEdges: [[1, 1, 0]] };
     roadOnBlocked.sign[1][1][0] = [1, 0];
@@ -140,6 +141,32 @@ test('落单的红 / 阻断边上的路名 / 相邻异色被阻断 → 无解', 
     gluedColors.sign[0][1][2] = [7, 0];
     gluedColors.sign[1][1][2] = [8, 0];
     assert.equal(solvePuzzle(gluedColors).status, 'unsolvable');
+});
+
+test('静态判定：红专失衡 / 强制边分叉 / 强制边压必合并格对，均 0 节点判无解', () => {
+    // 红专失衡：只有红没有专（与 C++ 原版 lone_red_4x4 同构）
+    const lone = { size: [4, 4], sign: blankSign(4, 4), palette: [], blockedEdges: [] };
+    lone.sign[2][2][2] = [11, 0];
+    assert.equal(solvePuzzle(lone).status, 'unsolvable');
+    assert.equal(solvePuzzle(lone).nodes, 0);
+
+    // 强制边分叉：四条黑路汇聚于内部格点 (1,1)，简单弧最多用掉两条相邻边
+    const fork = { size: [3, 3], sign: blankSign(3, 3), palette: [], blockedEdges: [] };
+    fork.sign[1][0][1][0] = 1;   // 竖边 (1,0)-(1,1)
+    fork.sign[1][1][1][0] = 1;   // 竖边 (1,1)-(1,2)
+    fork.sign[0][1][0][0] = 1;   // 横边 (0,1)-(1,1)
+    fork.sign[1][1][0][0] = 1;   // 横边 (1,1)-(2,1)
+    assert.equal(solvePuzzle(fork).status, 'unsolvable');
+    assert.equal(solvePuzzle(fork).nodes, 0);
+
+    // 强制边压"必合并格对"：同一栋五教的两格之间的公共边被黑路要求画开
+    const bld = { size: [3, 3], sign: blankSign(3, 3), palette: [], blockedEdges: [] };
+    bld.sign[0][1][2] = [13, 4];
+    bld.sign[1][1][2] = [13, 4];
+    bld.sign[2][1][2] = [13, 4];
+    bld.sign[1][1][1][0] = 1;    // 五教两格公共竖边上的黑路
+    assert.equal(solvePuzzle(bld).status, 'unsolvable');
+    assert.equal(solvePuzzle(bld).nodes, 0);
 });
 
 test('自定义色按实际颜色参与书院判定', () => {
