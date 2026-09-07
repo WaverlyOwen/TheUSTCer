@@ -293,7 +293,8 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
                 if (result.difficulty !== null) {
                     parts.push(`难度 ${result.difficultyIsBound ? '≥ ' : ''}${result.difficulty.toFixed(1)}（${difficultyLabel(result.difficulty)}）`);
                 }
-                // 没画完整答案时把求得的解填进去，保存即带答案；画过的保留创作者自己的
+                // 当前没有完整答案时把求得的解填进去（作者画过完整答案则保留；
+                // 若之后改过地图，apply 已清空答案，这里会按新题面重新填）
                 if (!replayedPath().finished) {
                     answerDraft = [...result.moves];
                     parts.push('已填入答案');
@@ -596,15 +597,40 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
             cellDialog.querySelectorAll('[data-action="dialog-cancel"]').forEach((button) =>
                 button.addEventListener('click', closeDialog));
             cellDialog.querySelector('[data-action="dialog-apply"]').addEventListener('click', () => {
+                // 邻边路名可能落在相邻格上，快照所有会被写到的格做"是否真的变了"判断
+                const touched = new Map();
+                const snap = (x, y) => touched.set(`${x},${y}`, JSON.stringify(sign[x][y]));
+                snap(i, j);
+                for (const edge of pendingEdges) {
+                    if (edge.available) {
+                        snap(edge.x, edge.y);
+                    }
+                }
                 sign[i][j][2] = pendingType;
-                solverText = null;
                 for (const edge of pendingEdges) {
                     if (edge.available) {
                         sign[edge.x][edge.y][edge.orient] = [edge.on ? 1 : 0, edge.idx];
                     }
                 }
+                let changed = false;
+                for (const [key, before] of touched) {
+                    const [x, y] = key.split(',').map(Number);
+                    if (JSON.stringify(sign[x][y]) !== before) {
+                        changed = true;
+                        break;
+                    }
+                }
+                if (!changed) {
+                    closeDialog();   // 应用了但没改动：什么都不打扰
+                    return;
+                }
+                // 地图确实变了：旧答案（无论求解器自动填的还是作者手绘的）对新图可能
+                // 已非法，立即清掉当前路径与求解结论；下次"检查可解"会按新题面重新求解。
+                solverText = null;
+                answerDraft = [];
                 closeDialog();
                 rebuildBoard();
+                updateHint();
             });
 
             cellDialog.querySelectorAll('[data-cell-type]').forEach((pill) => {
