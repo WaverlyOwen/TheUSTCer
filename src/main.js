@@ -1107,7 +1107,7 @@ async function startGame() {
     }
 
     async function shareRecord(record) {
-        const copied = await copyText(encodeShareUrl(record));
+        const copied = await copyText(await encodeShareUrl(record));
         showToast(copied ? '分享链接已复制，整道题都在链接里' : '复制失败，请手动复制地址栏链接');
     }
 
@@ -1383,7 +1383,7 @@ async function startGame() {
     }
 
     // 分享链接导入：先摘掉 hash（避免刷新重复弹层），再在首盘就绪后确认导入
-    const sharedRecord = decodeShareHash();
+    const sharedRecord = await decodeShareHash();
     if (sharedRecord) {
         history.replaceState(null, '', `${location.pathname}${location.search}`);
     }

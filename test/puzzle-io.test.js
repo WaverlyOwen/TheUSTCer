@@ -56,9 +56,11 @@ function sampleRecord() {
     };
 }
 
-test('分享链接编解码往返保持题目数据不变', () => {
+test('分享链接编解码往返保持题目数据不变', async () => {
     const record = sampleRecord();
-    const decoded = decodeShareHash(encodeShareHash(record));
+    const hash = await encodeShareHash(record);
+    assert.match(hash, /^#z=[A-Za-z0-9_-]+$/);
+    const decoded = await decodeShareHash(hash);
     assert.ok(decoded);
     assert.deepEqual(decoded.sign, record.sign);
     assert.deepEqual(decoded.answer, record.answer);
@@ -92,11 +94,36 @@ test('validateRecord 拒绝坏结构/越界类型码/坏路名号', () => {
     assert.equal(validateRecord(sampleRecord()), true);
 });
 
-test('decodeShareHash 拒绝非法 base64 与非法记录', () => {
-    assert.equal(decodeShareHash('#p=%%%%'), null);
-    assert.equal(decodeShareHash('#nope'), null);
+test('decodeShareHash 拒绝非法 base64、坏压缩流与非法记录', async () => {
+    assert.equal(await decodeShareHash('#p=%%%%'), null);
+    assert.equal(await decodeShareHash('#z=%%%%'), null);
+    assert.equal(await decodeShareHash('#nope'), null);
+    // 合法 base64url 但不是 deflate 流
+    assert.equal(await decodeShareHash('#z=AAAAAAAA'), null);
     const bad = { ...sampleRecord(), sign: 'oops' };
-    assert.equal(decodeShareHash(encodeShareHash(bad)), null);
+    assert.equal(await decodeShareHash(await encodeShareHash(bad)), null);
+});
+
+test('旧版 #p= 明文链接仍可解码', async () => {
+    const record = sampleRecord();
+    const legacy = `#p=${Buffer.from(JSON.stringify(record)).toString('base64url')}`;
+    const decoded = await decodeShareHash(legacy);
+    assert.ok(decoded);
+    assert.deepEqual(decoded.sign, record.sign);
+    assert.deepEqual(decoded.answer, record.answer);
+    assert.equal(decoded.name, record.name);
+});
+
+test('压缩链接明显短于明文链接，且不带 id', async () => {
+    const record = { ...sampleRecord(), id: 'p123', w: 20, h: 20, sign: blankSign(20, 20), answer: null };
+    const hash = await encodeShareHash(record);
+    const plain = `#p=${Buffer.from(JSON.stringify(record)).toString('base64url')}`;
+    // 20×20 空板 sign 几乎全零，deflate 后应至少缩到明文的十分之一
+    assert.ok(hash.length * 10 < plain.length, `${hash.length} vs ${plain.length}`);
+    const decoded = await decodeShareHash(hash);
+    assert.ok(decoded);
+    assert.equal(decoded.id, undefined);
+    assert.equal(decoded.w, 20);
 });
 
 test('deserializePuzzle 重放答案，坏答案按无答案处理', () => {
