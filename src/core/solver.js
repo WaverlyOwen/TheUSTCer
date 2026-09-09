@@ -949,8 +949,10 @@ export function difficultyLabel(difficulty) {
 // 重启预算自 restartNodes 起**逐次翻倍**：实测（bench/data 四盘 × 20 种子扫描 +
 // 200 次随机重排模拟）小预算起步递增的总代价与 p90 均优于固定大预算重试
 // （翻倍 0.1M 起四盘合计均值 0.13M / p90 0.30M；固定 2M/次则 0.96M / 2.32M）。
+// rate=false 时只做求解（可解性），不做难度评级——评级（ratePuzzle 的迭代加深
+// 全树枚举）通常比求解贵两个数量级，适合拆成独立入口按需触发。
 // 返回 { status, moves, nodes, difficulty, difficultyIsBound, shortest }
-export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, firstAttemptNodes = 2_000_000, restartNodes = 250_000 } = {}) {
+export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, firstAttemptNodes = 2_000_000, restartNodes = 250_000, rate = true } = {}) {
     const deadline = now() + timeBudgetMs;
     const solver = new PuzzleSolver(puzzle);
     let status = solver.run({ maxNodes: firstAttemptNodes, deadline });
@@ -966,6 +968,9 @@ export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, firstAttemptNodes =
     }
     if (status !== 'solved') {
         return { status, moves: null, nodes, difficulty: null, difficultyIsBound: false, shortest: false };
+    }
+    if (!rate) {
+        return { status, moves, nodes, difficulty: null, difficultyIsBound: false, shortest: false };
     }
     const rating = ratePuzzle(puzzle, { timeBudgetMs: Math.max(50, deadline - now()) });
     if (rating.status === 'solved') {

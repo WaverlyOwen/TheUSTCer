@@ -17,7 +17,7 @@ import { attachPointer } from '../input/pointer.js';
 import { createSwipeDetector, isMobileDevice } from '../input/touch.js';
 import { difficultyLabel } from '../core/solver.js';
 import { escapeHtml } from '../lib/html.js';
-import { analyzePuzzleAsync } from '../lib/solver-client.js';
+import { analyzePuzzleAsync, ratePuzzleAsync } from '../lib/solver-client.js';
 import { getThemeColors, random } from '../lib/random.js';
 import { getSensitivity } from '../lib/settings.js';
 import { isDark, onThemeChange } from '../lib/theme.js';
@@ -27,6 +27,7 @@ import { CLOSE_ICON } from './icons.js';
 const FORMAT_VERSION = 1;
 // 「检查可解」的求解时限：Worker 内 DFS + 随机重启 + 评级共用
 const SOLVER_BUDGET_MS = 6000;
+const RATE_BUDGET_MS = 8000;   // 难度评级单独计时：全树枚举比求解贵得多
 
 // 书院四色类型码（7-10）；自定义色走 20+palette 下标。
 // 颜色与书院对应：橙=光启·仲英（少年班），蓝=冲之（数学/工程/管理），
@@ -48,8 +49,9 @@ function cloneSign(sign) {
 }
 
 // 题目编辑器：全屏覆盖层。点格子改类型/字/邻边路名，「画答案」复用 Path 输入。
-// 「检查可解」用求解器（core/solver.js，Worker 内限时运行）判定题面是否有解并评级，
-// 没画答案时会把求得的最短解填进答案；不检查也能保存（无答案题永远 WA，符合设定）。
+// 「检查可解」只判可解性（Worker 内限时，求解后不再自动评级），没画答案时把求得的解
+// 填进答案；「难度评级」独立按钮按需触发（ratePuzzle 迭代加深求最短解并统计搜索空间，
+// 通常比求解贵一两个数量级，故拆开）；不检查也能保存（无答案题永远 WA，符合设定）。
 export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) {
     // ===== 编辑状态 =====
     let w = record?.w ?? 6;
@@ -71,6 +73,9 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
     let themeColors = getThemeColors(isDark());
     let solverBusy = false;
     let solverText = null;       // 最近一次求解结论；题面/答案一变就作废
+    let rateBusy = false;
+    let ratingText = null;       // 最近一次难度评级结论（求解/改图后作废）
+    let solveOk = false;         // 当前题面是否已被求解器确认有解（评级按钮的开关）
 
     const root = document.createElement('div');
     root.id = 'editor-root';
@@ -174,6 +179,7 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
                 <footer class="editor-actions">
                     <button type="button" class="mode-secondary" data-action="clear-answer" hidden>清除答案</button>
                     <button type="button" class="mode-secondary" data-action="solve">检查可解</button>
+                    <button type="button" class="mode-secondary" data-action="rate" disabled>难度评级</button>
                     <button type="button" class="mode-secondary" data-action="share">复制分享链接</button>
                     <button type="button" class="mode-secondary" data-action="play">试玩</button>
                     <button type="button" class="mode-primary" data-action="save">保存到工坊</button>
@@ -196,6 +202,9 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         });
         root.querySelector('[data-action="solve"]').addEventListener('click', () => {
             void runSolver();
+        });
+        root.querySelector('[data-action="rate"]').addEventListener('click', () => {
+            void runRating();
         });
         root.querySelector('[data-action="save"]').addEventListener('click', () => {
             const saved = onSave?.(buildRecord());
@@ -277,6 +286,49 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
             button.disabled = busy;
             button.textContent = busy ? '求解中…' : '检查可解';
         }
+        updateRateButton();
+    }
+
+    function updateRateButton() {
+        const button = root.querySelector('[data-action="rate"]');
+        if (!button) {
+            return;
+        }
+        button.disabled = rateBusy || solverBusy || !solveOk;
+        button.textContent = rateBusy ? '评级中…' : '难度评级';
+    }
+
+    function setRateBusy(busy) {
+        rateBusy = busy;
+        updateRateButton();
+    }
+
+    // 难度评级（与求解解耦）：ratePuzzle 迭代加深求最短解，难度分 = lg(搜索空间)。
+    // 独立按钮触发，避免"检查可解"被全树枚举拖慢；改图/重新求解会使结果作废。
+    async function runRating() {
+        if (rateBusy || solverBusy || !solveOk || !sign) {
+            return;
+        }
+        setRateBusy(true);
+        ratingText = `评级中：求最短解并统计搜索空间，最多约 ${RATE_BUDGET_MS / 1000} 秒…`;
+        updateHint();
+        try {
+            const result = await ratePuzzleAsync(currentPuzzle(), { timeBudgetMs: RATE_BUDGET_MS });
+            if (result.status === 'solved') {
+                ratingText = `难度 ${result.difficulty.toFixed(1)}（${difficultyLabel(result.difficulty)}）· 最短 ${result.moves.length} 步`;
+            } else if (result.status === 'budget') {
+                ratingText = result.difficulty !== null
+                    ? `评级未完成：难度 ≥ ${result.difficulty.toFixed(1)}（预算不足，可稍后再点一次重试）`
+                    : '评级未完成（预算不足）';
+            } else {
+                ratingText = '评级异常：求解器认为当前题面无解？';
+            }
+        } catch (error) {
+            ratingText = `评级失败：${error?.message ?? error}`;
+        } finally {
+            setRateBusy(false);
+            updateHint();
+        }
     }
 
     async function runSolver() {
@@ -284,10 +336,13 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
             return;
         }
         setSolveBusy(true);
+        ratingText = null;          // 题面重新求解前，旧评级结论不再有效
+        solveOk = false;
+        updateRateButton();
         solverText = '求解中，最多等待几秒…';
         updateHint();
         try {
-            const result = await analyzePuzzleAsync(currentPuzzle(), { timeBudgetMs: SOLVER_BUDGET_MS });
+            const result = await analyzePuzzleAsync(currentPuzzle(), { timeBudgetMs: SOLVER_BUDGET_MS, rate: false });   // 只判可解性；评级走独立按钮
             if (result.status === 'solved') {
                 const parts = [`有解 · ${result.shortest ? '最短' : '找到'} ${result.moves.length} 步`];
                 if (result.difficulty !== null) {
@@ -306,6 +361,7 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
                     }
                 }
                 solverText = parts.join(' · ');
+                solveOk = true;
             } else if (result.status === 'unsolvable') {
                 solverText = '无解：当前题面不存在合法路径，请检查规则冲突';
             } else {
@@ -342,8 +398,8 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
         if (!hint) {
             return;
         }
-        if (solverText) {
-            hint.textContent = solverText;
+        if (solverText || ratingText) {
+            hint.textContent = [solverText, ratingText].filter(Boolean).join('；');
             return;
         }
         if (mode === 'answer') {
@@ -625,11 +681,15 @@ export function openEditor({ record = null, onSave, onShare, onPlay, onClose }) 
                     return;
                 }
                 // 地图确实变了：旧答案（无论求解器自动填的还是作者手绘的）对新图可能
-                // 已非法，立即清掉当前路径与求解结论；下次"检查可解"会按新题面重新求解。
+                // 已非法，立即清掉当前路径与求解结论；难度评级也一并作废（评级按钮
+                // 需重新"检查可解"确认有解后才可用）。下次点按钮会按新题面重算。
                 solverText = null;
+                ratingText = null;
+                solveOk = false;
                 answerDraft = [];
                 closeDialog();
                 rebuildBoard();
+                updateRateButton();
                 updateHint();
             });
 
