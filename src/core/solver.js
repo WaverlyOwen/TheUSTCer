@@ -944,25 +944,28 @@ export function difficultyLabel(difficulty) {
     return DIFFICULTY_TIERS.find(([upper]) => difficulty < upper)[1];
 }
 
-// 题目工坊用的完整流程：固定序 DFS → 超预算则随机重启（稀疏大题常常头几次就中）
-// → 有解则用剩余时间评级。可解性优先：整段时限都可用于求解，评级只花剩下的。
-// 重启预算自 restartNodes 起**逐次翻倍**：实测（bench/data 四盘 × 20 种子扫描 +
-// 200 次随机重排模拟）小预算起步递增的总代价与 p90 均优于固定大预算重试
-// （翻倍 0.1M 起四盘合计均值 0.13M / p90 0.30M；固定 2M/次则 0.96M / 2.32M）。
+// 题目工坊用的完整流程：随机方向顺序重启求解（无固定序先导）→ 有解则用剩余时间
+// 评级。尝试预算自 restartNodes 起**逐次翻倍**，每次换种子（随机方向顺序）。
+// 依据（bench/data 语料实测，2026-09）：固定序"右下左上"在不少盘上本身就是差顺序
+// （9×9 s2 固定序 67 万节点、随机序 ~1 万内即中），固定先导等于先烧一大笔预算；
+// 随机序下解通常"浅而密"，小预算起步多次重试远优于大预算孤注一掷（200 次随机
+// 重排模拟：固定 2M/次均值 0.96M/p90 2.32M；翻倍 0.01M 起 0.13M/p90 0.30M 量级）。
+// 代价与取舍：无解题与顺序无关（每种顺序都要走完同一棵剪枝树），去掉先导后
+// 中等规模无解树要多花 ~2× 节点、接近超时线才下"无解"结论——调用方应给足
+// 时间预算（编辑器 6s→10s 即为此保险）；有解盘的体验全面改善。
 // rate=false 时只做求解（可解性），不做难度评级——评级（ratePuzzle 的迭代加深
 // 全树枚举）通常比求解贵两个数量级，适合拆成独立入口按需触发。
 // 返回 { status, moves, nodes, difficulty, difficultyIsBound, shortest }
-export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, firstAttemptNodes = 2_000_000, restartNodes = 250_000, rate = true } = {}) {
+export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, restartNodes = 10_000, rate = true } = {}) {
     const deadline = now() + timeBudgetMs;
     const solver = new PuzzleSolver(puzzle);
-    let status = solver.run({ maxNodes: firstAttemptNodes, deadline });
-    let nodes = solver.nodes;
-    let moves = solver.solution;
-    let seed = 1;
+    let status = 'budget';
+    let nodes = 0;
+    let moves = null;
     let attempt = 0;
     while (status === 'budget' && now() < deadline) {
         attempt++;
-        status = solver.run({ maxNodes: restartNodes << (attempt - 1), deadline, seed: seed++ });
+        status = solver.run({ maxNodes: restartNodes << (attempt - 1), deadline, seed: attempt });
         nodes += solver.nodes;
         moves = solver.solution;
     }

@@ -26,7 +26,7 @@ import { CLOSE_ICON } from './icons.js';
 
 const FORMAT_VERSION = 1;
 // 「检查可解」的求解时限：Worker 内 DFS + 随机重启 + 评级共用
-const SOLVER_BUDGET_MS = 6000;
+const SOLVER_BUDGET_MS = 10000;   // 求解预算：随机重启无固定先导后，给无解树留足一次完整穷尽的时间
 const RATE_BUDGET_MS = 8000;   // 难度评级单独计时：全树枚举比求解贵得多
 
 // 书院四色类型码（7-10）；自定义色走 20+palette 下标。
