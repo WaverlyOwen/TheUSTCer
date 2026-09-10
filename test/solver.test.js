@@ -162,7 +162,7 @@ test('落单的红 / 阻断边上的路名 / 相邻异色被阻断 → 无解', 
     assert.equal(solvePuzzle(gluedColors).status, 'unsolvable');
 });
 
-test('静态判定：红专失衡 / 强制边分叉 / 强制边压必合并格对，均 0 节点判无解', () => {
+test('静态判定：红专失衡 / 强制边分叉 0 节点判无解；同楼相邻必须切开', () => {
     // 红专失衡：只有红没有专（与 C++ 原版 lone_red_4x4 同构）
     const lone = { size: [4, 4], sign: blankSign(4, 4), palette: [], blockedEdges: [] };
     lone.sign[2][2][2] = [11, 0];
@@ -178,14 +178,23 @@ test('静态判定：红专失衡 / 强制边分叉 / 强制边压必合并格�
     assert.equal(solvePuzzle(fork).status, 'unsolvable');
     assert.equal(solvePuzzle(fork).nodes, 0);
 
-    // 强制边压"必合并格对"：同一栋五教的两格之间的公共边被黑路要求画开
+    // 同楼标记相邻必须切开（方向回归，评审 #4 指出）：两格五教上下相邻 → 必须能解出
+    const sameBld = { size: [3, 2], sign: blankSign(3, 2), palette: [], blockedEdges: [] };
+    sameBld.sign[0][0][2] = [13, 4];
+    sameBld.sign[0][1][2] = [13, 4];
+    const sameResult = solvePuzzle(sameBld);
+    assert.equal(sameResult.status, 'solved');
+    assertValidSolution(sameBld, sameResult.moves);
+
+    // 同楼三格成行 + 公共边黑路名：切开三列后各列一条三格直线、各含一枚五教 → 可解
     const bld = { size: [3, 3], sign: blankSign(3, 3), palette: [], blockedEdges: [] };
     bld.sign[0][1][2] = [13, 4];
     bld.sign[1][1][2] = [13, 4];
     bld.sign[2][1][2] = [13, 4];
-    bld.sign[1][1][1][0] = 1;    // 五教两格公共竖边上的黑路
-    assert.equal(solvePuzzle(bld).status, 'unsolvable');
-    assert.equal(solvePuzzle(bld).nodes, 0);
+    bld.sign[1][1][1][0] = 1;    // 五教相邻格的公共竖边上有黑路
+    const bldResult = solvePuzzle(bld);
+    assert.equal(bldResult.status, 'solved');
+    assertValidSolution(bld, bldResult.moves);
 });
 
 test('自定义色按实际颜色参与书院判定', () => {

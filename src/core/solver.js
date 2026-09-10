@@ -12,7 +12,8 @@ import { colorKeyOf } from './puzzle-io.js';
 // 全部剪枝只删"必然无解"的分支，DFS 保持完备：
 //   0) 静态判定（build 一次）：红专/理实全局数量失衡、强制边图分叉（起点/出口角外
 //      挂 ≥3 条强制边、起终点挂 ≥2 条）或成环、强制边与"必合并格对"冲突 ⇒ 无解。
-//      必合并格对（同栋楼两格、全局唯一的一对红-专/理-实）的公共边记入 mustMerge[]。
+//      必合并格对（全局唯一的一对红-专/理-实）的公共边记入 mustMerge[]；
+//      相邻两格同楼标记则相反——必须切开（并入 mustCut 强制边）。
 //   1) 强制边：黑路名边 ∪ 必须切开的边（相邻两格书院异色 / 同为红专理实中的同一标记）。
 //      端点挂着未覆盖强制边 ⇒ 下一步唯一；另一端已占用 ⇒ 死；挂两条 ⇒ 死。
 //   2) 出口可达：每步一次格点 BFS，出口角不可达即死；可达集同时是 2b、3 的输入。
@@ -22,7 +23,8 @@ import { colorKeyOf } from './puzzle-io.js';
 //      一次 O(强制边数) 的全表（reqStranded）。
 //   3) 封闭区域：自避路径只在"端点从内部走到矩形边界"时围出新区域，此刻按
 //      validator.js 的规则验证该区域（区域一旦封闭永不改变），违规即死。
-//   3') 必合并墙（applyMove 内 O(1)）：切开 mustMerge[] 两侧格的墙一步都画不得。
+//   3') 必合并墙（applyMove 内 O(1)）：切开 mustMerge[] 两侧格的墙一步都画不得
+//       （仅"唯一红-专/理-实对"；同楼相邻已由 mustCut 强制画开）。
 //   4) 焊死组（glue）：端点离开某格点后，该点上未画的内部边永远画不成，两侧格子
 //      必然同区。用可回滚并查集维护每组的书院色 / 红专理实计数 / 楼标记，
 //      出现"同区必违规"的组合立刻剪。
@@ -212,7 +214,11 @@ export class PuzzleSolver {
         // 必须切开的内部格边：书院异色 / 同标记
         const mustCut = (a, b) =>
             (this.cellColor[a] >= 0 && this.cellColor[b] >= 0 && this.cellColor[a] !== this.cellColor[b]) ||
-            (this.cellMark[a] >= 0 && this.cellMark[a] === this.cellMark[b]);
+            (this.cellMark[a] >= 0 && this.cellMark[a] === this.cellMark[b]) ||
+            // 同一栋楼的标记必须分属不同区域（同区域重复楼标记违规，见 validator.js），
+            // 相邻两格同楼 ⇒ 公共边必须被路径画开（与 glue 的 glBld 相交判死同语义）
+            (this.cellBuilding[a] >= 0 && this.cellBuilding[a] < BUILDING_MASKS.length &&
+             this.cellBuilding[a] === this.cellBuilding[b]);
         for (let x = 0; x < w; x++) {
             for (let y = 1; y < h; y++) {
                 if (mustCut(this.cellId(x, y - 1), this.cellId(x, y))) {
@@ -285,10 +291,8 @@ export class PuzzleSolver {
             }
             const mustMerge = new Uint8Array(2 * nv);
             const mustMergePair = (a, b) => {
-                const ba = this.cellBuilding[a];
-                if (ba >= 0 && ba < BUILDING_MASKS.length && ba === this.cellBuilding[b]) {
-                    return true;
-                }
+                // 只有"全局唯一的一对红-专 / 理-实"必须同区（成对规则）；
+                // 楼标记相反——同楼相邻必须切开，已并入上面的 mustCut。
                 for (let g = 0; g < 2; g++) {
                     if (markCnt[g * 2] === 1 && markCnt[g * 2 + 1] === 1 &&
                         ((a === markPos[g * 2] && b === markPos[g * 2 + 1]) ||
@@ -963,11 +967,13 @@ export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, restartNodes = 10_0
     let nodes = 0;
     let moves = null;
     let attempt = 0;
+    let budget = restartNodes;
     while (status === 'budget' && now() < deadline) {
         attempt++;
-        status = solver.run({ maxNodes: restartNodes << (attempt - 1), deadline, seed: attempt });
+        status = solver.run({ maxNodes: budget, deadline, seed: attempt });
         nodes += solver.nodes;
         moves = solver.solution;
+        budget = Math.min(budget * 2, 2 ** 30);   // 封顶，防 << 溢出成负数导致空转
     }
     if (status !== 'solved') {
         return { status, moves: null, nodes, difficulty: null, difficultyIsBound: false, shortest: false };
