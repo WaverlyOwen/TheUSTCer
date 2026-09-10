@@ -9,12 +9,22 @@ import { colorKeyOf } from './puzzle-io.js';
 //   格点 V = x*(h+1) + y，边 E = 2V + axis（axis 0 横边 (x,y)-(x+1,y)，1 竖边 (x,y)-(x,y+1)）
 //   方向 0右 1下 2左 3上；从 (0,0) 出发走到出口角 (w,h)，再向右跨出棋盘（answer 末位 0）
 //
-// 四类剪枝全部只删"必然无解"的分支，DFS 保持完备：
+// 全部剪枝只删"必然无解"的分支，DFS 保持完备：
+//   0) 静态判定（build 一次）：红专/理实全局数量失衡、强制边图分叉（起点/出口角外
+//      挂 ≥3 条强制边、起终点挂 ≥2 条）或成环、强制边与"必合并格对"冲突 ⇒ 无解。
+//      必合并格对（全局唯一的一对红-专/理-实）的公共边记入 mustMerge[]；
+//      相邻两格同楼标记则相反——必须切开（并入 mustCut 强制边）。
 //   1) 强制边：黑路名边 ∪ 必须切开的边（相邻两格书院异色 / 同为红专理实中的同一标记）。
 //      端点挂着未覆盖强制边 ⇒ 下一步唯一；另一端已占用 ⇒ 死；挂两条 ⇒ 死。
-//   2) 出口可达：每步一次格点 BFS，出口角不可达即死；可达集同时是第 3 条的输入。
+//   2) 出口可达：每步一次格点 BFS，出口角不可达即死；可达集同时是 2b、3 的输入。
+//   2b) 强制边全局必达（剪枝 1 的"全局化"）：未覆盖强制边必须被走到，而走到它至少
+//      要有一个端点在可达集内（可达集单调收缩）。用洪泛规模做"级联门控"：本步
+//      规模恰好少 1 = 无格点口袋合拢、任何端点可达性都没变，免扫描；少 ≥2 才扫
+//      一次 O(强制边数) 的全表（reqStranded）。
 //   3) 封闭区域：自避路径只在"端点从内部走到矩形边界"时围出新区域，此刻按
 //      validator.js 的规则验证该区域（区域一旦封闭永不改变），违规即死。
+//   3') 必合并墙（applyMove 内 O(1)）：切开 mustMerge[] 两侧格的墙一步都画不得
+//       （仅"唯一红-专/理-实对"；同楼相邻已由 mustCut 强制画开）。
 //   4) 焊死组（glue）：端点离开某格点后，该点上未画的内部边永远画不成，两侧格子
 //      必然同区。用可回滚并查集维护每组的书院色 / 红专理实计数 / 楼标记，
 //      出现"同区必违规"的组合立刻剪。
@@ -58,6 +68,7 @@ export class PuzzleSolver {
         this.reqAtV = null;
         this.cov = null;
         this.uncovered = 0;
+        this.mustMerge = null;      // 边→1：两侧格"必须同区"，沿它画墙即死（build 里建）
 
         // ---- 邻接查表 ----
         this.xOf = new Int32Array(nv);
@@ -113,6 +124,7 @@ export class PuzzleSolver {
         this.vertVis = new Int32Array(nv);
         this.vertStamp = 0;
         this.headId = 0;
+        this.floodSize = 0;         // 最近一次 bfsReach 的可达格点数（级联门控用）
 
         // ---- 焊死组 ----
         this.glPar = new Int32Array(nc).fill(-1);
@@ -202,7 +214,11 @@ export class PuzzleSolver {
         // 必须切开的内部格边：书院异色 / 同标记
         const mustCut = (a, b) =>
             (this.cellColor[a] >= 0 && this.cellColor[b] >= 0 && this.cellColor[a] !== this.cellColor[b]) ||
-            (this.cellMark[a] >= 0 && this.cellMark[a] === this.cellMark[b]);
+            (this.cellMark[a] >= 0 && this.cellMark[a] === this.cellMark[b]) ||
+            // 同一栋楼的标记必须分属不同区域（同区域重复楼标记违规，见 validator.js），
+            // 相邻两格同楼 ⇒ 公共边必须被路径画开（与 glue 的 glBld 相交判死同语义）
+            (this.cellBuilding[a] >= 0 && this.cellBuilding[a] < BUILDING_MASKS.length &&
+             this.cellBuilding[a] === this.cellBuilding[b]);
         for (let x = 0; x < w; x++) {
             for (let y = 1; y < h; y++) {
                 if (mustCut(this.cellId(x, y - 1), this.cellId(x, y))) {
@@ -221,6 +237,91 @@ export class PuzzleSolver {
             if (this.blocked[e]) {
                 return false;   // 强制边落在阻断边上：必无解
             }
+        }
+        // ===== 静态必无解判定（build 一次，O(格+边)），与 C++ 原版 2026-09 版同口径 =====
+        // 1) 红专/理实"成对"是逐区域规则（每区域红数==专数且 ≤1，理实同理）；对全部
+        //    区域求和即得全局红数必须==专数，失衡 ⇒ 无论如何划分都有"有红无专"区域。
+        // 2) 路径是简单弧：一个格点至多被经过一次、用掉两条相邻边 ⇒ 起点 (0,0)/出口角
+        //    之外挂 ≥3 条强制边的格点（起点/出口角挂 ≥2 条）永远覆盖不全。
+        // 3) 强制边图成环：环上每个格点都挂两条未覆盖强制边，从环外进环即被剪枝 1
+        //    判死、从起点沿环走则终点必是已占用格点 ⇒ 环永远无法整体覆盖。
+        // 4) 必合并格对（同栋楼两格；全局唯一的一对红-专/理-实）之间不能画墙：公共边
+        //    记入 mustMerge[]，搜索中沿它走一步即死；若该边本身还是强制边 ⇒ 无解。
+        {
+            const markCnt = [0, 0, 0, 0];       // 0红 1专 2理 3实
+            const markPos = [-1, -1, -1, -1];
+            for (let c = 0; c < this.nc; c++) {
+                const m = this.cellMark[c];
+                if (m >= 0 && m < 4) {
+                    markCnt[m]++;
+                    if (markCnt[m] === 1) {
+                        markPos[m] = c;
+                    }
+                }
+            }
+            if (markCnt[0] !== markCnt[1] || markCnt[2] !== markCnt[3]) {
+                return false;
+            }
+            const exitV = this.nv - 1;
+            const deg = new Int32Array(nv);
+            const uf = new Int32Array(nv).fill(-1);
+            const ufFind = (a) => {
+                while (uf[a] >= 0) {
+                    a = uf[a];
+                }
+                return a;
+            };
+            for (let i = 0; i < this.reqEdge.length; i++) {
+                for (const v of [this.reqVa[i], this.reqVb[i]]) {
+                    const cap = (v === 0 || v === exitV) ? 1 : 2;
+                    if (++deg[v] > cap) {
+                        return false;
+                    }
+                }
+                let ra = ufFind(this.reqVa[i]);
+                let rb = ufFind(this.reqVb[i]);
+                if (ra === rb) {
+                    return false;   // 强制边图成环
+                }
+                if (uf[ra] > uf[rb]) {
+                    [ra, rb] = [rb, ra];
+                }
+                uf[ra] += uf[rb];
+                uf[rb] = ra;
+            }
+            const mustMerge = new Uint8Array(2 * nv);
+            const mustMergePair = (a, b) => {
+                // 只有"全局唯一的一对红-专 / 理-实"必须同区（成对规则）；
+                // 楼标记相反——同楼相邻必须切开，已并入上面的 mustCut。
+                for (let g = 0; g < 2; g++) {
+                    if (markCnt[g * 2] === 1 && markCnt[g * 2 + 1] === 1 &&
+                        ((a === markPos[g * 2] && b === markPos[g * 2 + 1]) ||
+                         (a === markPos[g * 2 + 1] && b === markPos[g * 2]))) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            for (let x = 0; x < w; x++) {
+                for (let y = 1; y < h; y++) {
+                    if (mustMergePair(this.cellId(x, y - 1), this.cellId(x, y))) {
+                        mustMerge[this.edgeId(x, y, 0)] = 1;
+                    }
+                }
+            }
+            for (let x = 1; x < w; x++) {
+                for (let y = 0; y < h; y++) {
+                    if (mustMergePair(this.cellId(x - 1, y), this.cellId(x, y))) {
+                        mustMerge[this.edgeId(x, y, 1)] = 1;
+                    }
+                }
+            }
+            for (const e of this.reqEdge) {
+                if (mustMerge[e]) {
+                    return false;   // 强制边要求画开必合并格对
+                }
+            }
+            this.mustMerge = mustMerge;
         }
         if (!this.glueInit()) {
             return false;
@@ -502,7 +603,8 @@ export class PuzzleSolver {
         });
     }
 
-    // 从端点 BFS 可达的未占用格点；返回出口角是否可达
+    // 从端点 BFS 可达的未占用格点；返回出口角是否可达。
+    // floodSize 记下本次洪泛规模（含端点自身），供"级联门控"判断用。
     bfsReach(headV) {
         const { queue } = this;
         this.vertStamp++;
@@ -523,7 +625,23 @@ export class PuzzleSolver {
                 queue[write++] = t;
             }
         }
+        this.floodSize = write;
         return this.vertVis[this.nv - 1] === this.vertStamp;
+    }
+
+    // 剪枝 2b（强制边全局必达）：是否存在"永远走不到"的未覆盖强制边——两端都不在
+    // 可达集（vertVis 戳）内。可达集只收缩不扩张，此刻不可达 = 永远不可达 ⇒ 必死。
+    reqStranded() {
+        for (let i = 0; i < this.reqEdge.length; i++) {
+            if (this.cov[i]) {
+                continue;
+            }
+            if (this.vertVis[this.reqVa[i]] !== this.vertStamp &&
+                this.vertVis[this.reqVb[i]] !== this.vertStamp) {
+                return true;
+            }
+        }
+        return false;
     }
 
     finish() {
@@ -542,6 +660,10 @@ export class PuzzleSolver {
             this.uncovered--;
         }
         this.moves.push(d);
+        if (this.mustMerge[e]) {   // 墙把"必须同区"的两格切开 ⇒ 死（kill 须在入栈后）
+            this.undoMove(nextV, e);
+            return false;
+        }
         for (const r of this.reqAtV[nextV]) {
             if (this.cov[r]) {
                 continue;
@@ -597,7 +719,9 @@ export class PuzzleSolver {
         return r;
     }
 
-    explore(headV) {
+    // stampSize：本状态（端点为 headV）的可达格点数，由父步的 bfsReach（或 run 的
+    // 起点洪泛）算出并随递归传入，用于"级联门控"（见剪枝 2b 注释）。
+    explore(headV, stampSize) {
         if (this.moves.length >= this.depthLimit) {
             this.depthCut = true;
             return false;
@@ -676,6 +800,14 @@ export class PuzzleSolver {
                 this.undoMove(nextV, e);
                 continue;
             }
+            // 剪枝 2b（强制边全局必达，见 reqStranded）。级联门控：每步可达集只会因
+            // "刚占用的那一个格点"而缩小——恰好少 1 = 无格点口袋合拢、任何未覆盖
+            // 强制边端点的可达性都没变，免扫描；少 ≥2 才做一次 O(强制边数) 扫描。
+            const childStamp = this.floodSize;
+            if (childStamp <= stampSize - 2 && this.reqStranded()) {
+                this.undoMove(nextV, e);
+                continue;
+            }
             // 剪枝 3：端点从内部到达边界时围出新区域
             let good = true;
             if (this.onFrame(this.xOf[nextV], this.yOf[nextV]) && !this.onFrame(x, y)) {
@@ -683,7 +815,7 @@ export class PuzzleSolver {
             }
             let found = false;
             try {
-                found = good && this.explore(nextV);
+                found = good && this.explore(nextV, childStamp);
             } finally {
                 this.undoMove(nextV, e);
             }
@@ -710,9 +842,15 @@ export class PuzzleSolver {
         }
         this.occ.fill(0);
         this.occ[0] = 1;
+        // 起点洪泛：既是子步级联门控的基准（stampSize），也让"起点处出口已不可达 /
+        // 有强制边永远走不到"的题在第一步前就判无解（可达集单调收缩，起点不可达 =
+        // 永远不可达，与深度限制无关）。
+        if (!this.bfsReach(0) || this.reqStranded()) {
+            return 'unsolvable';
+        }
         let found = false;
         try {
-            found = this.explore(0);
+            found = this.explore(0, this.floodSize);
         } catch (error) {
             if (!(error instanceof BudgetExceeded)) {
                 throw error;
@@ -736,10 +874,28 @@ function normalizeOptions({ maxNodes = Infinity, timeBudgetMs = Infinity, seed =
 }
 
 // DFS 求任意一解。puzzle: { size, sign, palette?, blockedEdges? }（生成器产物 / deserializePuzzle 同构）
+// options: { maxNodes, timeBudgetMs, seed, restartNodes, maxRestarts }
+//   默认单次固定序搜索（与历史行为一致）；传 restartNodes > 0 且 maxRestarts > 0 时，
+//   首次超预算则随机重启：每次尝试预算 restartNodes、种子递增，最多 maxRestarts 次。
+//   实测（bench/data 四盘 × 20 种子扫描）：固定序搜不动的题在随机方向顺序下解通常
+//   "浅而密"，小预算多次重试远优于把预算全压在一次尝试上。
 export function solvePuzzle(puzzle, options = {}) {
     const solver = new PuzzleSolver(puzzle);
-    const status = solver.run(normalizeOptions(options));
-    return { status, moves: solver.solution, nodes: solver.nodes };
+    const { restartNodes = 0, maxRestarts = 0 } = options;
+    const norm = normalizeOptions(options);
+    let status = solver.run(norm);
+    let nodes = solver.nodes;
+    let moves = solver.solution;
+    let seedBase = (options.seed ?? 0) >>> 0 || 1;
+    let attempt = 0;
+    while (status === 'budget' && restartNodes > 0 && maxRestarts > 0 &&
+           attempt < maxRestarts && now() < norm.deadline) {
+        attempt++;
+        status = solver.run({ maxNodes: restartNodes, deadline: norm.deadline, seed: seedBase + attempt });
+        nodes += solver.nodes;
+        moves = solver.solution;
+    }
+    return { status, moves, nodes };
 }
 
 // 迭代加深求最短解并评级。难度分 = lg(搜到最短解那一层之前的剪枝树节点数)，
@@ -792,23 +948,38 @@ export function difficultyLabel(difficulty) {
     return DIFFICULTY_TIERS.find(([upper]) => difficulty < upper)[1];
 }
 
-// 题目工坊用的完整流程：固定序 DFS → 超预算则随机重启（稀疏大题常常头几次就中）
-// → 有解则用剩余时间评级。可解性优先：整段时限都可用于求解，评级只花剩下的。
+// 题目工坊用的完整流程：随机方向顺序重启求解（无固定序先导）→ 有解则用剩余时间
+// 评级。尝试预算自 restartNodes 起**逐次翻倍**，每次换种子（随机方向顺序）。
+// 依据（bench/data 语料实测，2026-09）：固定序"右下左上"在不少盘上本身就是差顺序
+// （9×9 s2 固定序 67 万节点、随机序 ~1 万内即中），固定先导等于先烧一大笔预算；
+// 随机序下解通常"浅而密"，小预算起步多次重试远优于大预算孤注一掷（200 次随机
+// 重排模拟：固定 2M/次均值 0.96M/p90 2.32M；翻倍 0.01M 起 0.13M/p90 0.30M 量级）。
+// 代价与取舍：无解题与顺序无关（每种顺序都要走完同一棵剪枝树），去掉先导后
+// 中等规模无解树要多花 ~2× 节点、接近超时线才下"无解"结论——调用方应给足
+// 时间预算（编辑器 6s→10s 即为此保险）；有解盘的体验全面改善。
+// rate=false 时只做求解（可解性），不做难度评级——评级（ratePuzzle 的迭代加深
+// 全树枚举）通常比求解贵两个数量级，适合拆成独立入口按需触发。
 // 返回 { status, moves, nodes, difficulty, difficultyIsBound, shortest }
-export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, firstAttemptNodes = 2_000_000, restartNodes = 250_000 } = {}) {
+export function analyzePuzzle(puzzle, { timeBudgetMs = 3000, restartNodes = 10_000, rate = true } = {}) {
     const deadline = now() + timeBudgetMs;
     const solver = new PuzzleSolver(puzzle);
-    let status = solver.run({ maxNodes: firstAttemptNodes, deadline });
-    let nodes = solver.nodes;
-    let moves = solver.solution;
-    let seed = 1;
+    let status = 'budget';
+    let nodes = 0;
+    let moves = null;
+    let attempt = 0;
+    let budget = restartNodes;
     while (status === 'budget' && now() < deadline) {
-        status = solver.run({ maxNodes: restartNodes, deadline, seed: seed++ });
+        attempt++;
+        status = solver.run({ maxNodes: budget, deadline, seed: attempt });
         nodes += solver.nodes;
         moves = solver.solution;
+        budget = Math.min(budget * 2, 2 ** 30);   // 封顶，防 << 溢出成负数导致空转
     }
     if (status !== 'solved') {
         return { status, moves: null, nodes, difficulty: null, difficultyIsBound: false, shortest: false };
+    }
+    if (!rate) {
+        return { status, moves, nodes, difficulty: null, difficultyIsBound: false, shortest: false };
     }
     const rating = ratePuzzle(puzzle, { timeBudgetMs: Math.max(50, deadline - now()) });
     if (rating.status === 'solved') {
